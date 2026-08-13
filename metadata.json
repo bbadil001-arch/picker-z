@@ -1,0 +1,6 @@
+{
+  "name": "RandomizerWheel - Custom Spin Wheel Picker",
+  "description": "RandomizerWheel is an advanced customizable wheel spinner for decisions, random name picking, raffles, and giveaways with custom colors, sound effects, and instant results.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
