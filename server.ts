@@ -32,15 +32,22 @@ async function startServer() {
         });
       }
 
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          },
+        },
+      });
 
       const prompt = `Generate a list of exactly ${count} short, creative, and clear options for a spin wheel choice app based on this topic: "${topic}".
 Language requested: ${lang === "ar" ? "Arabic" : "English"}.
 Return ONLY a valid JSON array of strings, without markdown formatting, code blocks, or extra text.
-Example format: ["الخيار 1", "الخيار 2", "الخيار 3"]`;
+Example format: ["Option 1", "Option 2", "Option 3"]`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: prompt,
       });
 

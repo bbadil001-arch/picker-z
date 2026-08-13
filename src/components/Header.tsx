@@ -1,15 +1,26 @@
 import React, { useState } from 'react';
-import { Disc, Globe, Maximize, Minimize, Share2, Check } from 'lucide-react';
+import { Disc, Globe, Maximize, Minimize, Share2, Check, Menu, X, Dices, HelpCircle, UserCheck, CheckCircle2, Sliders } from 'lucide-react';
+
+export type ActivePage = 'wheel' | 'yesno' | 'numbers' | 'names' | 'faq';
 
 interface HeaderProps {
   lang: 'ar' | 'en';
   setLang: (lang: 'ar' | 'en') => void;
   onShare: () => void;
+  activePage: ActivePage;
+  setActivePage: (page: ActivePage) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ lang, setLang, onShare }) => {
+export const Header: React.FC<HeaderProps> = ({
+  lang,
+  setLang,
+  onShare,
+  activePage,
+  setActivePage,
+}) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copiedShare, setCopiedShare] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -29,12 +40,23 @@ export const Header: React.FC<HeaderProps> = ({ lang, setLang, onShare }) => {
     setTimeout(() => setCopiedShare(false), 2000);
   };
 
+  const navItems = [
+    { id: 'wheel' as ActivePage, labelEn: 'Wheel Spinner', labelAr: 'العجلة الرئيسية', icon: Disc },
+    { id: 'yesno' as ActivePage, labelEn: 'Yes/No Wheel', labelAr: 'عجلة نعم أم لا', icon: CheckCircle2 },
+    { id: 'numbers' as ActivePage, labelEn: 'Number Generator', labelAr: 'مولد الأرقام', icon: Dices },
+    { id: 'names' as ActivePage, labelEn: 'Name Picker', labelAr: 'سحب الأسماء', icon: UserCheck },
+    { id: 'faq' as ActivePage, labelEn: 'FAQ & Guide', labelAr: 'الأسئلة والدليل', icon: HelpCircle },
+  ];
+
   return (
-    <header className="w-full bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-3 sm:px-6 py-2.5 sm:py-3">
+    <header className="w-full bg-slate-900/95 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-3 sm:px-6 py-2.5 sm:py-3">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
         {/* Logo & Brand */}
-        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/20 shrink-0">
+        <div
+          onClick={() => setActivePage('wheel')}
+          className="flex items-center gap-2 sm:gap-2.5 min-w-0 cursor-pointer group"
+        >
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/20 shrink-0 group-hover:scale-105 transition-transform">
             <Disc className="w-5 h-5 sm:w-6 sm:h-6 animate-spin-slow" />
           </div>
 
@@ -52,6 +74,28 @@ export const Header: React.FC<HeaderProps> = ({ lang, setLang, onShare }) => {
             </p>
           </div>
         </div>
+
+        {/* Desktop Navigation Pages Menu */}
+        <nav className="hidden lg:flex items-center gap-1 bg-slate-950/80 p-1 rounded-2xl border border-slate-800">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activePage === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActivePage(item.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  isActive
+                    ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-md shadow-amber-500/20'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'stroke-[2.5]' : 'text-slate-400'}`} />
+                <span>{lang === 'ar' ? item.labelAr : item.labelEn}</span>
+              </button>
+            );
+          })}
+        </nav>
 
         {/* Right Nav Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -91,12 +135,48 @@ export const Header: React.FC<HeaderProps> = ({ lang, setLang, onShare }) => {
           <button
             onClick={toggleFullscreen}
             title={lang === 'ar' ? 'ملء الشاشة' : 'Fullscreen'}
-            className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition"
+            className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition hidden xs:flex"
           >
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
           </button>
+
+          {/* Mobile Menu Toggle Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-xl border border-slate-700 transition lg:hidden"
+            aria-label="Toggle Navigation Menu"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile Menu Dropdown Drawer */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden pt-3 pb-2 border-t border-slate-800 mt-2 space-y-1.5 animate-fadeIn">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activePage === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActivePage(item.id);
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  isActive
+                    ? 'bg-amber-500 text-slate-950 shadow'
+                    : 'text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${isActive ? 'text-slate-950' : 'text-amber-400'}`} />
+                <span>{lang === 'ar' ? item.labelAr : item.labelEn}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </header>
   );
 };

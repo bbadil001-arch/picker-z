@@ -6,8 +6,9 @@ import { WheelCustomizer } from './components/WheelCustomizer';
 import { WinnerModal } from './components/WinnerModal';
 import { SpinHistory } from './components/SpinHistory';
 import { SEOContentSection } from './components/SEOContentSection';
-import { Header } from './components/Header';
-import { Sparkles } from 'lucide-react';
+import { Header, ActivePage } from './components/Header';
+import { NumberGeneratorTool } from './components/NumberGeneratorTool';
+import { Sparkles, Dices, HelpCircle, CheckCircle2, UserCheck, Disc } from 'lucide-react';
 
 const DEFAULT_OPTIONS: WheelOption[] = [
   { id: '1', label: 'Emma Watson', hidden: false },
@@ -34,6 +35,8 @@ const DEFAULT_CONFIG: WheelConfig = {
 };
 
 export default function App() {
+  const [activePage, setActivePage] = useState<ActivePage>('wheel');
+
   const [lang, setLang] = useState<'ar' | 'en'>(() => {
     try {
       const saved = localStorage.getItem('rw_lang');
@@ -77,6 +80,36 @@ export default function App() {
       localStorage.setItem('rw_lang', lang);
     } catch (e) {}
   }, [lang]);
+
+  // Handle page menu navigation clicks
+  const handlePageSelect = (page: ActivePage) => {
+    setActivePage(page);
+
+    if (page === 'yesno') {
+      const yesnoItems = lang === 'ar' ? ['نعم', 'لا', 'ربما', 'مرة أخرى'] : ['YES', 'NO', 'MAYBE', 'SPIN AGAIN'];
+      setOptions(
+        yesnoItems.map((lbl, idx) => ({
+          id: 'yn_' + idx,
+          label: lbl,
+          hidden: false,
+        }))
+      );
+      setConfig((prev) => ({
+        ...prev,
+        title: lang === 'ar' ? 'عجلة حسم القرارات: نعم أم لا؟ 🤔' : 'Yes or No Wheel Decision Maker 🤔',
+      }));
+    } else if (page === 'names') {
+      setConfig((prev) => ({
+        ...prev,
+        title: lang === 'ar' ? 'سحب اختيار الأسماء العشوائي 🎟️' : 'Random Name Picker & Raffle 🎟️',
+      }));
+    } else if (page === 'faq') {
+      const el = document.getElementById('faq-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  };
 
   // Check URL hash for shared wheel
   useEffect(() => {
@@ -146,6 +179,21 @@ export default function App() {
     setOptions((prev) => prev.filter((opt) => opt.id !== id));
   };
 
+  // Load numbers into wheel
+  const handleLoadNumbersIntoWheel = (numbers: number[]) => {
+    const numOptions: WheelOption[] = numbers.map((n, idx) => ({
+      id: 'num_' + idx + '_' + Date.now(),
+      label: String(n),
+      hidden: false,
+    }));
+    setOptions(numOptions);
+    setConfig((prev) => ({
+      ...prev,
+      title: lang === 'ar' ? 'عجلة سحب الأرقام 🎲' : 'Random Number Spinner 🎲',
+    }));
+    setActivePage('wheel');
+  };
+
   // Generate share URL
   const handleShare = () => {
     const shareObj = {
@@ -164,60 +212,76 @@ export default function App() {
       }`}
       dir={lang === 'ar' ? 'rtl' : 'ltr'}
     >
-      {/* Header Navbar */}
-      <Header lang={lang} setLang={setLang} onShare={handleShare} />
+      {/* Header Navbar with pages menu */}
+      <Header
+        lang={lang}
+        setLang={setLang}
+        onShare={handleShare}
+        activePage={activePage}
+        setActivePage={handlePageSelect}
+      />
 
-      {/* Main Wheel Studio Container */}
+      {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-6 sm:space-y-8">
-        {/* Wheel Title */}
-        <div className="text-center space-y-1.5 px-2">
-          <h1 className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-200 to-yellow-400 tracking-tight leading-snug break-words">
-            {config.title || (lang === 'ar' ? 'عجلة القرعة والخيارات العشوائية' : 'Randomizer Wheel')}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 max-w-2xl mx-auto">
-            {lang === 'ar'
-              ? 'موقع RandomizerWheel.com | أضف الخيارات، خصص الألوان وأدر العجلة الآن'
-              : 'RandomizerWheel.com | Add choices, customize colors, and spin for instant results!'}
-          </p>
-        </div>
+        {/* VIEW 1: NUMBER GENERATOR PAGE */}
+        {activePage === 'numbers' ? (
+          <NumberGeneratorTool lang={lang} onLoadIntoWheel={handleLoadNumbersIntoWheel} />
+        ) : (
+          /* VIEW 2: SPIN WHEEL STUDIO (Main, Yes/No, Name Picker) */
+          <>
+            {/* Wheel Title */}
+            <div className="text-center space-y-1.5 px-2">
+              <h1 className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-200 to-yellow-400 tracking-tight leading-snug break-words">
+                {config.title || (lang === 'ar' ? 'عجلة القرعة والخيارات العشوائية' : 'Randomizer Wheel')}
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-400 max-w-2xl mx-auto">
+                {lang === 'ar'
+                  ? 'موقع RandomizerWheel.com | أضف الخيارات، خصص الألوان وأدر العجلة الآن'
+                  : 'RandomizerWheel.com | Add choices, customize colors, and spin for instant results!'}
+              </p>
+            </div>
 
-        {/* 2 Column Layout: Left Spin Stage, Right Control Panels */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-          {/* LEFT: Spin Wheel Interactive Stage (7 cols) */}
-          <div className="lg:col-span-7 flex flex-col items-center justify-center space-y-5 sm:space-y-6 bg-slate-900/60 border border-slate-800 rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-2xl backdrop-blur relative overflow-hidden w-full">
-            {/* Background ambient glow */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 sm:w-96 sm:h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+            {/* 2 Column Layout: Left Spin Stage, Right Control Panels */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+              {/* LEFT: Spin Wheel Interactive Stage (7 cols) */}
+              <div className="lg:col-span-7 flex flex-col items-center justify-center space-y-5 sm:space-y-6 bg-slate-900/60 border border-slate-800 rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-2xl backdrop-blur relative overflow-hidden w-full">
+                {/* Background ambient glow */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 sm:w-96 sm:h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-            {/* Canvas Wheel Component */}
-            <SpinWheel
-              options={options}
-              config={config}
-              onSpinEnd={handleSpinEnd}
-              isSpinning={isSpinning}
-              setIsSpinning={setIsSpinning}
-              lang={lang}
-            />
+                {/* Canvas Wheel Component */}
+                <SpinWheel
+                  options={options}
+                  config={config}
+                  onSpinEnd={handleSpinEnd}
+                  isSpinning={isSpinning}
+                  setIsSpinning={setIsSpinning}
+                  lang={lang}
+                />
 
-            {/* Spin History */}
-            <SpinHistory
-              history={history}
-              onClearHistory={() => setHistory([])}
-              lang={lang}
-            />
-          </div>
+                {/* Spin History */}
+                <SpinHistory
+                  history={history}
+                  onClearHistory={() => setHistory([])}
+                  lang={lang}
+                />
+              </div>
 
-          {/* RIGHT: Controls (Options Manager & Customizer) (5 cols) */}
-          <div className="lg:col-span-5 space-y-5 sm:space-y-6 w-full">
-            {/* Option List Manager */}
-            <OptionManager options={options} setOptions={setOptions} lang={lang} />
+              {/* RIGHT: Controls (Options Manager & Customizer) (5 cols) */}
+              <div className="lg:col-span-5 space-y-5 sm:space-y-6 w-full">
+                {/* Option List Manager */}
+                <OptionManager options={options} setOptions={setOptions} lang={lang} />
 
-            {/* Customizer Settings */}
-            <WheelCustomizer config={config} setConfig={setConfig} lang={lang} />
-          </div>
-        </div>
+                {/* Customizer Settings */}
+                <WheelCustomizer config={config} setConfig={setConfig} lang={lang} />
+              </div>
+            </div>
+          </>
+        )}
 
         {/* SEO Article & FAQ Content Section */}
-        <SEOContentSection lang={lang} />
+        <div id="faq-section">
+          <SEOContentSection lang={lang} />
+        </div>
       </main>
 
       {/* Winner Modal */}
