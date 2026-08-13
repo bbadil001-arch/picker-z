@@ -214,10 +214,10 @@ export const OptionManager: React.FC<OptionManagerProps> = ({ options, setOption
 
         <button
           onClick={() => setShowAiModal(true)}
-          className="flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 bg-gradient-to-r from-purple-900/50 to-indigo-900/50 hover:from-purple-800/60 hover:to-indigo-800/60 text-purple-200 rounded-xl text-xs font-semibold border border-purple-500/40 transition"
+          className="flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-2 bg-gradient-to-r from-purple-900/60 via-indigo-900/60 to-purple-900/60 hover:from-purple-800 hover:to-indigo-800 text-purple-200 rounded-xl text-[11px] sm:text-xs font-semibold border border-purple-500/50 shadow-md transition active:scale-95 cursor-pointer"
         >
           <Wand2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-300 shrink-0" />
-          <span className="truncate">{lang === 'ar' ? 'ذكاء اصطناعي' : 'AI Generator'}</span>
+          <span className="whitespace-nowrap">{lang === 'ar' ? 'ذكاء اصطناعي' : 'AI Generator'}</span>
         </button>
 
         <button

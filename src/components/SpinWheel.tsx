@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import { WheelOption, WheelConfig, Language } from '../types';
 import { getContrastTextColor, getSliceColors } from '../utils/colorThemes';
 import { sound } from '../utils/sound';
-import { Play, Sparkles } from 'lucide-react';
+import { Play, Sparkles, Download } from 'lucide-react';
 import { t } from '../utils/translations';
 
 interface SpinWheelProps {
@@ -335,6 +335,57 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
     animationFrameRef.current = requestAnimationFrame(animate);
   };
 
+  const handleDownloadImage = () => {
+    const sourceCanvas = canvasRef.current;
+    if (!sourceCanvas) return;
+
+    const exportCanvas = document.createElement('canvas');
+    const size = 1000;
+    exportCanvas.width = size;
+    exportCanvas.height = size + 120;
+
+    const ctx = exportCanvas.getContext('2d');
+    if (!ctx) return;
+
+    // Dark background
+    ctx.fillStyle = config.customBgColor || '#0f172a';
+    ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+    // Subtle glow
+    const glow = ctx.createRadialGradient(size / 2, size / 2 + 30, 100, size / 2, size / 2 + 30, size / 2 + 50);
+    glow.addColorStop(0, 'rgba(245, 158, 11, 0.15)');
+    glow.addColorStop(1, 'rgba(15, 23, 42, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+    // Optional Title Header
+    if (config.title) {
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 36px system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(config.title, size / 2, 60);
+    }
+
+    // Draw Source Canvas Wheel Centered
+    const wheelMargin = 70;
+    const wheelSize = size - wheelMargin * 2;
+    const wheelY = config.title ? 95 : 60;
+    ctx.drawImage(sourceCanvas, wheelMargin, wheelY, wheelSize, wheelSize);
+
+    // Watermark
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 24px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('RandomizerWheel.com', size / 2, exportCanvas.height - 35);
+
+    // Download PNG
+    const link = document.createElement('a');
+    const cleanTitle = config.title ? config.title.replace(/[^a-zA-Z0-9_\u0600-\u06FF-]/g, '_') : 'wheel';
+    link.download = `${cleanTitle}.png`;
+    link.href = exportCanvas.toDataURL('image/png');
+    link.click();
+  };
+
   return (
     <div className="flex flex-col items-center justify-center relative w-full py-1 sm:py-2">
       {/* Canvas Wrapper */}
@@ -351,30 +402,44 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
         />
       </div>
 
-      {/* Main Spin CTA Button */}
-      <button
-        id="btn-spin-main"
-        onClick={spin}
-        disabled={isSpinning || activeOptions.length === 0}
-        className={`mt-5 sm:mt-6 w-full max-w-xs sm:w-auto px-6 sm:px-10 py-3.5 sm:py-4 text-lg sm:text-xl font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2.5 sm:gap-3 transition-all duration-300 transform ${
-          isSpinning || activeOptions.length === 0
-            ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-70'
-            : 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 hover:from-amber-400 hover:to-yellow-400 hover:scale-105 active:scale-95 shadow-amber-500/25 ring-4 ring-amber-400/20'
-        }`}
-      >
-        {isSpinning ? (
-          <>
-            <div className="w-5 h-5 sm:w-6 sm:h-6 border-3 border-slate-900 border-t-transparent rounded-full animate-spin" />
-            <span>{t(lang, 'spinning')}</span>
-          </>
-        ) : (
-          <>
-            <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-slate-950" />
-            <span>{t(lang, 'clickToSpin')}</span>
-            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 opacity-80" />
-          </>
-        )}
-      </button>
+      {/* Control Buttons Container */}
+      <div className="mt-5 sm:mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-md px-2">
+        {/* Main Spin CTA Button */}
+        <button
+          id="btn-spin-main"
+          onClick={spin}
+          disabled={isSpinning || activeOptions.length === 0}
+          className={`w-full sm:w-auto px-8 sm:px-10 py-3.5 sm:py-4 text-lg sm:text-xl font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2.5 sm:gap-3 transition-all duration-300 transform ${
+            isSpinning || activeOptions.length === 0
+              ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-70'
+              : 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 hover:from-amber-400 hover:to-yellow-400 hover:scale-105 active:scale-95 shadow-amber-500/25 ring-4 ring-amber-400/20'
+          }`}
+        >
+          {isSpinning ? (
+            <>
+              <div className="w-5 h-5 sm:w-6 sm:h-6 border-3 border-slate-900 border-t-transparent rounded-full animate-spin" />
+              <span>{t(lang, 'spinning')}</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-slate-950" />
+              <span>{t(lang, 'clickToSpin')}</span>
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 opacity-80" />
+            </>
+          )}
+        </button>
+
+        {/* Download Image Button */}
+        <button
+          onClick={handleDownloadImage}
+          disabled={isSpinning || activeOptions.length === 0}
+          title={t(lang, 'downloadImage')}
+          className="w-full sm:w-auto px-4 py-3.5 sm:py-4 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-amber-400 rounded-2xl text-sm font-bold border border-slate-700/80 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 disabled:opacity-50 shrink-0"
+        >
+          <Download className="w-5 h-5 text-amber-400" />
+          <span className="inline">{t(lang, 'downloadImage')}</span>
+        </button>
+      </div>
 
       {/* Instructions pill */}
       <p className="mt-2.5 sm:mt-3 text-[11px] sm:text-xs text-slate-400 text-center px-2">

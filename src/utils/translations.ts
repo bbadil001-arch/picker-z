@@ -35,6 +35,7 @@ export const translations: Record<Language, Record<string, string>> = {
     navFaq: 'FAQ & Guide',
     requestHelp: 'Request help or new features',
     allRightsReserved: 'All Rights Reserved',
+    downloadImage: 'Download Wheel Image',
     clickToSpin: 'CLICK TO SPIN',
     spinning: 'SPINNING...',
     congratulations: 'CONGRATULATIONS! 🎉',
