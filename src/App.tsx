@@ -11,6 +11,7 @@ import { NumberGeneratorTool } from './components/NumberGeneratorTool';
 import { ContactModal } from './components/ContactModal';
 import { LANGUAGES, t } from './utils/translations';
 import { Sparkles, Dices, HelpCircle, CheckCircle2, UserCheck, Disc, Mail } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 
 const DEFAULT_OPTIONS: WheelOption[] = [
   { id: '1', label: 'Emma Watson', hidden: false },
@@ -321,6 +322,9 @@ export default function App() {
           </button>
         </div>
       </footer>
+
+      {/* Vercel Web Analytics */}
+      <Analytics />
     </div>
   );
 }
