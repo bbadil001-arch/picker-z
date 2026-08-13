@@ -41,11 +41,15 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const width = canvas.width;
-    const height = canvas.height;
+    const dpr = window.devicePixelRatio || 1;
+    // Reset and set clean transform matrix matching device pixel ratio
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const width = canvas.width / dpr;
+    const height = canvas.height / dpr;
     const centerX = width / 2;
     const centerY = height / 2;
-    const radius = Math.min(centerX, centerY) - 22; // Margin for border & ticker
+    const radius = Math.max(10, Math.min(centerX, centerY) - 22); // Margin for border & ticker
 
     ctx.clearRect(0, 0, width, height);
 
@@ -230,18 +234,15 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
       const canvas = canvasRef.current;
       if (!container || !canvas) return;
 
-      // Fit container nicely on mobile screens down to 280px
+      // Fit container nicely on mobile screens down to 260px
       const availableWidth = container.clientWidth - 16;
-      const size = Math.max(260, Math.min(availableWidth, 500));
+      const size = Math.max(240, Math.min(availableWidth, 500));
       const dpr = window.devicePixelRatio || 1;
 
-      canvas.width = size * dpr;
-      canvas.height = size * dpr;
+      canvas.width = Math.floor(size * dpr);
+      canvas.height = Math.floor(size * dpr);
       canvas.style.width = `${size}px`;
       canvas.style.height = `${size}px`;
-
-      const ctx = canvas.getContext('2d');
-      if (ctx) ctx.scale(dpr, dpr);
 
       drawWheel();
     };
@@ -339,7 +340,7 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
       {/* Canvas Wrapper */}
       <div
         ref={containerRef}
-        className="relative flex items-center justify-center p-2 rounded-full shadow-2xl bg-slate-900/80 border border-slate-700/60 transition-transform w-full max-w-[520px] aspect-square"
+        className="relative flex items-center justify-center p-2 rounded-full shadow-2xl bg-slate-900/80 border border-slate-700/60 transition-transform w-full max-w-[500px] aspect-square overflow-hidden mx-auto"
       >
         <canvas
           ref={canvasRef}
