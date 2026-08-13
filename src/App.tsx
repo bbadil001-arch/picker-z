@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { WheelOption, WheelConfig, SpinHistoryItem } from './types';
+import { WheelOption, WheelConfig, SpinHistoryItem, Language } from './types';
 import { SpinWheel } from './components/SpinWheel';
 import { OptionManager } from './components/OptionManager';
 import { WheelCustomizer } from './components/WheelCustomizer';
@@ -8,7 +8,9 @@ import { SpinHistory } from './components/SpinHistory';
 import { SEOContentSection } from './components/SEOContentSection';
 import { Header, ActivePage } from './components/Header';
 import { NumberGeneratorTool } from './components/NumberGeneratorTool';
-import { Sparkles, Dices, HelpCircle, CheckCircle2, UserCheck, Disc } from 'lucide-react';
+import { ContactModal } from './components/ContactModal';
+import { LANGUAGES, t } from './utils/translations';
+import { Sparkles, Dices, HelpCircle, CheckCircle2, UserCheck, Disc, Mail } from 'lucide-react';
 
 const DEFAULT_OPTIONS: WheelOption[] = [
   { id: '1', label: 'Emma Watson', hidden: false },
@@ -36,11 +38,12 @@ const DEFAULT_CONFIG: WheelConfig = {
 
 export default function App() {
   const [activePage, setActivePage] = useState<ActivePage>('wheel');
+  const [isContactOpen, setIsContactOpen] = useState(false);
 
-  const [lang, setLang] = useState<'ar' | 'en'>(() => {
+  const [lang, setLang] = useState<Language>(() => {
     try {
-      const saved = localStorage.getItem('rw_lang');
-      if (saved === 'ar' || saved === 'en') return saved;
+      const saved = localStorage.getItem('rw_lang') as Language;
+      if (saved && LANGUAGES.some((l) => l.code === saved)) return saved;
     } catch (e) {}
     return 'en';
   });
@@ -96,12 +99,12 @@ export default function App() {
       );
       setConfig((prev) => ({
         ...prev,
-        title: lang === 'ar' ? 'عجلة حسم القرارات: نعم أم لا؟ 🤔' : 'Yes or No Wheel Decision Maker 🤔',
+        title: t(lang, 'yesNoTitle'),
       }));
     } else if (page === 'names') {
       setConfig((prev) => ({
         ...prev,
-        title: lang === 'ar' ? 'سحب اختيار الأسماء العشوائي 🎟️' : 'Random Name Picker & Raffle 🎟️',
+        title: t(lang, 'namesTitle'),
       }));
     } else if (page === 'faq') {
       const el = document.getElementById('faq-section');
@@ -219,6 +222,7 @@ export default function App() {
         onShare={handleShare}
         activePage={activePage}
         setActivePage={handlePageSelect}
+        onOpenContact={() => setIsContactOpen(true)}
       />
 
       {/* Main Container */}
@@ -232,12 +236,10 @@ export default function App() {
             {/* Wheel Title */}
             <div className="text-center space-y-1.5 px-2">
               <h1 className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-200 to-yellow-400 tracking-tight leading-snug break-words">
-                {config.title || (lang === 'ar' ? 'عجلة القرعة والخيارات العشوائية' : 'Randomizer Wheel')}
+                {config.title || t(lang, 'mainTitle')}
               </h1>
               <p className="text-xs sm:text-sm text-slate-400 max-w-2xl mx-auto">
-                {lang === 'ar'
-                  ? 'موقع RandomizerWheel.com | أضف الخيارات، خصص الألوان وأدر العجلة الآن'
-                  : 'RandomizerWheel.com | Add choices, customize colors, and spin for instant results!'}
+                {t(lang, 'subTitle')}
               </p>
             </div>
 
@@ -292,18 +294,31 @@ export default function App() {
         lang={lang}
       />
 
+      {/* Contact & Request Help Modal */}
+      <ContactModal
+        isOpen={isContactOpen}
+        onClose={() => setIsContactOpen(false)}
+        lang={lang}
+        currentOptions={options}
+      />
+
       {/* Footer */}
       <footer className="w-full bg-slate-900/90 border-t border-slate-800 py-6 mt-12 sm:mt-16 text-center text-xs text-slate-400">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-200">RandomizerWheel.com</span>
-            <span>© 2026 - {lang === 'ar' ? 'جميع الحقوق محفوظة' : 'All Rights Reserved'}</span>
+            <span>© 2026 - {t(lang, 'allRightsReserved')}</span>
           </div>
 
-          <div className="flex items-center gap-1 text-slate-400">
-            <span>{lang === 'ar' ? 'مصمم بعناية لأعلى أداء' : 'Built for speed and responsive performance'}</span>
-            <Sparkles className="w-3.5 h-3.5 text-amber-400 inline" />
-          </div>
+          <button
+            onClick={() => setIsContactOpen(true)}
+            className="flex items-center gap-1.5 text-slate-300 hover:text-amber-400 font-medium transition cursor-pointer group"
+          >
+            <span className="underline underline-offset-4 decoration-amber-500/50 group-hover:decoration-amber-400">
+              {t(lang, 'requestHelp')}
+            </span>
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 inline group-hover:scale-110 transition-transform" />
+          </button>
         </div>
       </footer>
     </div>

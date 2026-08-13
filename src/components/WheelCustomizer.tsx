@@ -1,12 +1,13 @@
 import React from 'react';
-import { WheelConfig } from '../types';
+import { WheelConfig, Language } from '../types';
 import { COLOR_THEMES } from '../utils/colorThemes';
 import { Palette, Volume2, VolumeX, Clock, Settings2, Check } from 'lucide-react';
+import { t } from '../utils/translations';
 
 interface WheelCustomizerProps {
   config: WheelConfig;
   setConfig: React.Dispatch<React.SetStateAction<WheelConfig>>;
-  lang: 'ar' | 'en';
+  lang: Language;
 }
 
 export const WheelCustomizer: React.FC<WheelCustomizerProps> = ({ config, setConfig, lang }) => {

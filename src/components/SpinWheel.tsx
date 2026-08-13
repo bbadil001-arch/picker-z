@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import { WheelOption, WheelConfig } from '../types';
+import { WheelOption, WheelConfig, Language } from '../types';
 import { getContrastTextColor, getSliceColors } from '../utils/colorThemes';
 import { sound } from '../utils/sound';
 import { Play, Sparkles } from 'lucide-react';
+import { t } from '../utils/translations';
 
 interface SpinWheelProps {
   options: WheelOption[];
@@ -11,7 +12,7 @@ interface SpinWheelProps {
   onSpinEnd: (winner: WheelOption) => void;
   isSpinning: boolean;
   setIsSpinning: (spinning: boolean) => void;
-  lang: 'ar' | 'en';
+  lang: Language;
 }
 
 export const SpinWheel: React.FC<SpinWheelProps> = ({
@@ -363,12 +364,12 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
         {isSpinning ? (
           <>
             <div className="w-5 h-5 sm:w-6 sm:h-6 border-3 border-slate-900 border-t-transparent rounded-full animate-spin" />
-            <span>{lang === 'ar' ? 'جاري التدوير...' : 'Spinning...'}</span>
+            <span>{t(lang, 'spinning')}</span>
           </>
         ) : (
           <>
             <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-slate-950" />
-            <span>{lang === 'ar' ? 'أدر العجلة الآن!' : 'Spin The Wheel!'}</span>
+            <span>{t(lang, 'clickToSpin')}</span>
             <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 opacity-80" />
           </>
         )}

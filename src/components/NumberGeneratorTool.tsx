@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Dices, Sparkles, RefreshCw, Copy, Check, Trophy } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { Language } from '../types';
+import { t } from '../utils/translations';
 
 interface NumberGeneratorProps {
-  lang: 'ar' | 'en';
+  lang: Language;
   onLoadIntoWheel: (numbers: number[]) => void;
 }
 

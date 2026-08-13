@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { ChevronDown, Zap, Palette, HelpCircle, Gift, Users, Award, Sparkles } from 'lucide-react';
+import { Language } from '../types';
 
 interface SEOContentProps {
-  lang: 'ar' | 'en';
+  lang: Language;
 }
 
 export const SEOContentSection: React.FC<SEOContentProps> = ({ lang }) => {

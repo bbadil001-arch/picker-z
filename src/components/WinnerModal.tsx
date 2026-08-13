@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
-import { WheelOption } from '../types';
+import { WheelOption, Language } from '../types';
 import confetti from 'canvas-confetti';
 import { Trophy, Trash2, RotateCcw, Copy, Check } from 'lucide-react';
+import { t } from '../utils/translations';
 
 interface WinnerModalProps {
   winner: WheelOption | null;
   onClose: () => void;
   onRemoveWinner: (id: string) => void;
-  lang: 'ar' | 'en';
+  lang: Language;
 }
 
 export const WinnerModal: React.FC<WinnerModalProps> = ({

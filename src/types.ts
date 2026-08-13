@@ -1,3 +1,5 @@
+export type Language = 'en' | 'fr' | 'es' | 'ar' | 'zh' | 'th' | 'tl' | 'ko' | 'ja';
+
 export interface WheelOption {
   id: string;
   label: string;
@@ -8,10 +10,7 @@ export interface WheelOption {
 
 export interface ColorTheme {
   id: string;
-  name: {
-    ar: string;
-    en: string;
-  };
+  name: Record<string, string>;
   colors: string[];
 }
 
@@ -37,13 +36,7 @@ export interface SpinHistoryItem {
 
 export interface PresetList {
   id: string;
-  category: {
-    ar: string;
-    en: string;
-  };
-  title: {
-    ar: string;
-    en: string;
-  };
+  category: Record<string, string>;
+  title: Record<string, string>;
   items: string[];
 }

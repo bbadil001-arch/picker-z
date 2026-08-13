@@ -1,11 +1,12 @@
 import React from 'react';
-import { SpinHistoryItem } from '../types';
+import { SpinHistoryItem, Language } from '../types';
 import { History, Trash2, Clock } from 'lucide-react';
+import { t } from '../utils/translations';
 
 interface SpinHistoryProps {
   history: SpinHistoryItem[];
   onClearHistory: () => void;
-  lang: 'ar' | 'en';
+  lang: Language;
 }
 
 export const SpinHistory: React.FC<SpinHistoryProps> = ({ history, onClearHistory, lang }) => {

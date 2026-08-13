@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { WheelOption, PresetList } from '../types';
+import { WheelOption, PresetList, Language } from '../types';
 import { PRESET_LISTS } from '../data/presets';
+import { t } from '../utils/translations';
 import {
   Plus,
   Trash2,
@@ -19,7 +20,7 @@ import {
 interface OptionManagerProps {
   options: WheelOption[];
   setOptions: React.Dispatch<React.SetStateAction<WheelOption[]>>;
-  lang: 'ar' | 'en';
+  lang: Language;
 }
 
 export const OptionManager: React.FC<OptionManagerProps> = ({ options, setOptions, lang }) => {
