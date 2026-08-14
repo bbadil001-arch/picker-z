@@ -13,6 +13,7 @@ interface SpinWheelProps {
   isSpinning: boolean;
   setIsSpinning: (spinning: boolean) => void;
   lang: Language;
+  spinTrigger?: number;
 }
 
 export const SpinWheel: React.FC<SpinWheelProps> = ({
@@ -23,6 +24,7 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
   isSpinning,
   setIsSpinning,
   lang,
+  spinTrigger,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -334,6 +336,13 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
 
     animationFrameRef.current = requestAnimationFrame(animate);
   };
+
+  // Trigger spin externally (e.g. from Winner Modal 'Spin Again' button)
+  useEffect(() => {
+    if (spinTrigger && spinTrigger > 0 && !isSpinning && activeOptions.length > 0) {
+      spin();
+    }
+  }, [spinTrigger]);
 
   const handleDownloadImage = () => {
     const sourceCanvas = canvasRef.current;

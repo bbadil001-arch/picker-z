@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Disc, Globe, Maximize, Minimize, Share2, Check, Menu, X, Dices, HelpCircle, UserCheck, CheckCircle2, Mail } from 'lucide-react';
+import { Disc, Globe, Maximize, Minimize, Share2, Check, Menu, X, Dices, HelpCircle, UserCheck, CheckCircle2, Mail, Shield } from 'lucide-react';
 import { Language } from '../types';
+import { LegalDocType } from '../data/legalContent';
 import { LANGUAGES, t } from '../utils/translations';
 
 export type ActivePage = 'wheel' | 'yesno' | 'numbers' | 'names' | 'faq';
@@ -12,6 +13,7 @@ interface HeaderProps {
   activePage: ActivePage;
   setActivePage: (page: ActivePage) => void;
   onOpenContact?: () => void;
+  onOpenLegal?: (tab: LegalDocType) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -21,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   activePage,
   setActivePage,
   onOpenContact,
+  onOpenLegal,
 }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copiedShare, setCopiedShare] = useState(false);
@@ -210,6 +213,47 @@ export const Header: React.FC<HeaderProps> = ({
               <Mail className="w-4 h-4 text-amber-400" />
               <span>{t(lang, 'contactUs')}</span>
             </button>
+          )}
+
+          {onOpenLegal && (
+            <div className="pt-2 border-t border-slate-800 grid grid-cols-2 gap-1.5 text-[11px]">
+              <button
+                onClick={() => {
+                  onOpenLegal('privacy');
+                  setMobileMenuOpen(false);
+                }}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-center font-medium"
+              >
+                {t(lang, 'privacyPolicy')}
+              </button>
+              <button
+                onClick={() => {
+                  onOpenLegal('terms');
+                  setMobileMenuOpen(false);
+                }}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-center font-medium"
+              >
+                {t(lang, 'termsOfService')}
+              </button>
+              <button
+                onClick={() => {
+                  onOpenLegal('about');
+                  setMobileMenuOpen(false);
+                }}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-center font-medium"
+              >
+                {t(lang, 'aboutUs')}
+              </button>
+              <button
+                onClick={() => {
+                  onOpenLegal('cookies');
+                  setMobileMenuOpen(false);
+                }}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-center font-medium"
+              >
+                {t(lang, 'cookiePolicy')}
+              </button>
+            </div>
           )}
         </div>
       )}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { WheelOption, PresetList, Language } from '../types';
 import { PRESET_LISTS } from '../data/presets';
 import { t } from '../utils/translations';
+import { generateSmartFallback } from '../utils/aiGenerator';
 import {
   Plus,
   Trash2,
@@ -32,6 +33,7 @@ export const OptionManager: React.FC<OptionManagerProps> = ({ options, setOption
 
   // AI Prompting state
   const [aiTopic, setAiTopic] = useState('');
+  const [aiCount, setAiCount] = useState<number>(0); // 0 means all / complete result
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
 
@@ -119,37 +121,59 @@ export const OptionManager: React.FC<OptionManagerProps> = ({ options, setOption
     setShowPresetsModal(false);
   };
 
-  // Generate with AI (Gemini Endpoint)
+  // Generate with AI (Gemini Endpoint + Client-Side Fallback)
   const handleGenerateAi = async () => {
     if (!aiTopic.trim()) return;
     setAiLoading(true);
     setAiError('');
 
     try {
-      const res = await fetch('/api/ai-options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topic: aiTopic,
-          lang,
-          count: 10,
-        }),
-      });
+      let finalOptions: string[] = [];
 
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        throw new Error(data.error || 'Failed to generate');
+      try {
+        const res = await fetch('/api/ai-options', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic: aiTopic,
+            lang,
+            count: aiCount,
+          }),
+        });
+
+        if (res.ok) {
+          const rawText = await res.text();
+          try {
+            const data = JSON.parse(rawText);
+            if (Array.isArray(data.options) && data.options.length > 0) {
+              finalOptions = data.options;
+            }
+          } catch {
+            // Not JSON
+          }
+        }
+      } catch (fetchErr) {
+        console.warn('Backend AI fetch failed, switching to smart local generator:', fetchErr);
       }
 
-      if (Array.isArray(data.options) && data.options.length > 0) {
-        const generatedOpts: WheelOption[] = data.options.map((text: string, idx: number) => ({
+      // If backend was unreachable or returned empty, use intelligent local generator
+      if (!finalOptions || finalOptions.length === 0) {
+        finalOptions = generateSmartFallback({
+          topic: aiTopic,
+          lang,
+          count: aiCount,
+        });
+      }
+
+      if (finalOptions.length > 0) {
+        const generatedOpts: WheelOption[] = finalOptions.map((text: string, idx: number) => ({
           id: Date.now().toString() + '_ai_' + idx,
           label: String(text),
           hidden: false,
         }));
 
         setOptions(generatedOpts);
-        setBulkText(data.options.join('\n'));
+        setBulkText(finalOptions.join('\n'));
         setShowAiModal(false);
         setAiTopic('');
       }
@@ -450,11 +474,40 @@ export const OptionManager: React.FC<OptionManagerProps> = ({ options, setOption
                 onChange={(e) => setAiTopic(e.target.value)}
                 placeholder={
                   lang === 'ar'
-                    ? 'مثال: أسئلة صراحة أو جرأة، مطاعم في الرياض، تحديات...'
-                    : 'e.g. Truth or Dare questions, Dinner choices, Movie genres...'
+                    ? 'مثال: دول إفريقيا، أسئلة صراحة أو جرأة، مطاعم...'
+                    : 'e.g. countries of africa, dinner choices, movie genres...'
                 }
                 className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-purple-500"
               />
+
+              {/* Result count selector */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-slate-400">
+                  {lang === 'ar' ? 'عدد الخيارات المطلوبة:' : 'Number of options:'}
+                </label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {[
+                    { val: 0, label: lang === 'ar' ? 'الكل (كاملة)' : 'All (Full)' },
+                    { val: 10, label: '10' },
+                    { val: 20, label: '20' },
+                    { val: 30, label: '30' },
+                    { val: 50, label: '50' },
+                  ].map((item) => (
+                    <button
+                      key={item.val}
+                      type="button"
+                      onClick={() => setAiCount(item.val)}
+                      className={`py-1.5 px-1 rounded-lg text-xs font-semibold transition border ${
+                        aiCount === item.val
+                          ? 'bg-purple-600 border-purple-400 text-white shadow-md'
+                          : 'bg-slate-950/70 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {aiError && (
                 <p className="text-xs text-rose-400 bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20">

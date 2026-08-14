@@ -7,6 +7,7 @@ import { t } from '../utils/translations';
 interface WinnerModalProps {
   winner: WheelOption | null;
   onClose: () => void;
+  onSpinAgain?: () => void;
   onRemoveWinner: (id: string) => void;
   lang: Language;
 }
@@ -14,6 +15,7 @@ interface WinnerModalProps {
 export const WinnerModal: React.FC<WinnerModalProps> = ({
   winner,
   onClose,
+  onSpinAgain,
   onRemoveWinner,
   lang,
 }) => {
@@ -69,8 +71,14 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
         {/* Action Buttons */}
         <div className="space-y-2 pt-1 sm:pt-2">
           <button
-            onClick={onClose}
-            className="w-full py-3 sm:py-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-bold rounded-2xl text-sm sm:text-base shadow-lg shadow-amber-500/25 transition flex items-center justify-center gap-2"
+            onClick={() => {
+              if (onSpinAgain) {
+                onSpinAgain();
+              } else {
+                onClose();
+              }
+            }}
+            className="w-full py-3 sm:py-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-bold rounded-2xl text-sm sm:text-base shadow-lg shadow-amber-500/25 transition flex items-center justify-center gap-2 cursor-pointer"
           >
             <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             <span>{lang === 'ar' ? 'تدوير مرة أخرى' : 'Spin Again'}</span>
