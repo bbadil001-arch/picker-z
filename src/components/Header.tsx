@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
-import { Disc, Globe, Maximize, Minimize, Share2, Check, Menu, X, Dices, HelpCircle, UserCheck, CheckCircle2, Mail, Shield } from 'lucide-react';
+import { Disc, Globe, Maximize, Minimize, Share2, Check, Menu, X, Dices, HelpCircle, UserCheck, CheckCircle2, Mail, Shield, BookOpen } from 'lucide-react';
 import { Language } from '../types';
 import { LegalDocType } from '../data/legalContent';
 import { LANGUAGES, t } from '../utils/translations';
 
-export type ActivePage = 'wheel' | 'yesno' | 'numbers' | 'names' | 'faq';
+export type ActivePage =
+  | 'wheel'
+  | 'yesno'
+  | 'numbers'
+  | 'names'
+  | 'faq'
+  | 'articles'
+  | 'article-detail'
+  | 'legal'
+  | 'contact';
 
 interface HeaderProps {
   lang: Language;
@@ -48,21 +57,25 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const navItems = [
-    { id: 'wheel' as ActivePage, labelKey: 'navWheel', icon: Disc },
-    { id: 'yesno' as ActivePage, labelKey: 'navYesNo', icon: CheckCircle2 },
-    { id: 'numbers' as ActivePage, labelKey: 'navNumbers', icon: Dices },
-    { id: 'names' as ActivePage, labelKey: 'navNames', icon: UserCheck },
-    { id: 'faq' as ActivePage, labelKey: 'navFaq', icon: HelpCircle },
+    { id: 'wheel' as ActivePage, labelKey: 'navWheel', icon: Disc, href: '#/wheel' },
+    { id: 'yesno' as ActivePage, labelKey: 'navYesNo', icon: CheckCircle2, href: '#/yesno' },
+    { id: 'numbers' as ActivePage, labelKey: 'navNumbers', icon: Dices, href: '#/numbers' },
+    { id: 'names' as ActivePage, labelKey: 'navNames', icon: UserCheck, href: '#/names' },
+    { id: 'articles' as ActivePage, labelKey: 'navArticles', icon: BookOpen, href: '#/articles' },
+    { id: 'faq' as ActivePage, labelKey: 'navFaq', icon: HelpCircle, href: '#/faq' },
   ];
-
-  const currentLangObj = LANGUAGES.find((l) => l.code === lang) || LANGUAGES[0];
 
   return (
     <header className="w-full bg-slate-900/95 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-3 sm:px-6 py-2.5 sm:py-3">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
-        {/* Logo & Brand */}
-        <div
-          onClick={() => setActivePage('wheel')}
+        {/* Logo & Brand Link */}
+        <a
+          href="#/wheel"
+          onClick={(e) => {
+            e.preventDefault();
+            setActivePage('wheel');
+            window.location.hash = '#/wheel';
+          }}
           className="flex items-center gap-2 sm:gap-2.5 min-w-0 cursor-pointer group"
         >
           <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/20 shrink-0 group-hover:scale-105 transition-transform">
@@ -82,17 +95,24 @@ export const Header: React.FC<HeaderProps> = ({
               {t(lang, 'siteTitle')}
             </p>
           </div>
-        </div>
+        </a>
 
         {/* Desktop Navigation Pages Menu */}
         <nav className="hidden lg:flex items-center gap-1 bg-slate-950/80 p-1 rounded-2xl border border-slate-800">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activePage === item.id;
+            const isActive =
+              activePage === item.id ||
+              (item.id === 'articles' && activePage === 'article-detail');
             return (
-              <button
+              <a
                 key={item.id}
-                onClick={() => setActivePage(item.id)}
+                href={item.href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActivePage(item.id);
+                  window.location.hash = item.href;
+                }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   isActive
                     ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-md shadow-amber-500/20'
@@ -101,26 +121,33 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Icon className={`w-3.5 h-3.5 ${isActive ? 'stroke-[2.5]' : 'text-slate-400'}`} />
                 <span>{t(lang, item.labelKey)}</span>
-              </button>
+              </a>
             );
           })}
         </nav>
 
         {/* Right Nav Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Contact Us Button */}
-          {onOpenContact && (
-            <button
-              onClick={onOpenContact}
-              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 rounded-xl text-xs font-bold border border-amber-500/30 transition shadow-sm"
-              title={t(lang, 'contactUs')}
-            >
-              <Mail className="w-4 h-4 text-amber-400" />
-              <span className="hidden sm:inline text-[11px] sm:text-xs">
-                {t(lang, 'contactUs')}
-              </span>
-            </button>
-          )}
+          {/* Contact Us Button / Link */}
+          <a
+            href="#/contact"
+            onClick={(e) => {
+              e.preventDefault();
+              if (onOpenContact) {
+                onOpenContact();
+              } else {
+                setActivePage('contact');
+              }
+              window.location.hash = '#/contact';
+            }}
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 rounded-xl text-xs font-bold border border-amber-500/30 transition shadow-sm"
+            title={t(lang, 'contactUs')}
+          >
+            <Mail className="w-4 h-4 text-amber-400" />
+            <span className="hidden sm:inline text-[11px] sm:text-xs">
+              {t(lang, 'contactUs')}
+            </span>
+          </a>
 
           {/* Share Button */}
           <button
@@ -182,13 +209,18 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="lg:hidden pt-3 pb-2 border-t border-slate-800 mt-2 space-y-1.5 animate-fadeIn">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activePage === item.id;
+            const isActive =
+              activePage === item.id ||
+              (item.id === 'articles' && activePage === 'article-detail');
             return (
-              <button
+              <a
                 key={item.id}
-                onClick={() => {
+                href={item.href}
+                onClick={(e) => {
+                  e.preventDefault();
                   setActivePage(item.id);
                   setMobileMenuOpen(false);
+                  window.location.hash = item.href;
                 }}
                 className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                   isActive
@@ -198,61 +230,78 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-slate-950' : 'text-amber-400'}`} />
                 <span>{t(lang, item.labelKey)}</span>
-              </button>
+              </a>
             );
           })}
 
-          {onOpenContact && (
-            <button
-              onClick={() => {
+          <a
+            href="#/contact"
+            onClick={(e) => {
+              e.preventDefault();
+              if (onOpenContact) {
                 onOpenContact();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-amber-300 bg-amber-500/10 border border-amber-500/20"
-            >
-              <Mail className="w-4 h-4 text-amber-400" />
-              <span>{t(lang, 'contactUs')}</span>
-            </button>
-          )}
+              } else {
+                setActivePage('contact');
+              }
+              setMobileMenuOpen(false);
+              window.location.hash = '#/contact';
+            }}
+            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-amber-300 bg-amber-500/10 border border-amber-500/20"
+          >
+            <Mail className="w-4 h-4 text-amber-400" />
+            <span>{t(lang, 'contactUs')}</span>
+          </a>
 
           {onOpenLegal && (
             <div className="pt-2 border-t border-slate-800 grid grid-cols-2 gap-1.5 text-[11px]">
-              <button
-                onClick={() => {
+              <a
+                href="#/privacy"
+                onClick={(e) => {
+                  e.preventDefault();
                   onOpenLegal('privacy');
                   setMobileMenuOpen(false);
+                  window.location.hash = '#/privacy';
                 }}
                 className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-center font-medium"
               >
                 {t(lang, 'privacyPolicy')}
-              </button>
-              <button
-                onClick={() => {
+              </a>
+              <a
+                href="#/terms"
+                onClick={(e) => {
+                  e.preventDefault();
                   onOpenLegal('terms');
                   setMobileMenuOpen(false);
+                  window.location.hash = '#/terms';
                 }}
                 className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-center font-medium"
               >
                 {t(lang, 'termsOfService')}
-              </button>
-              <button
-                onClick={() => {
+              </a>
+              <a
+                href="#/about"
+                onClick={(e) => {
+                  e.preventDefault();
                   onOpenLegal('about');
                   setMobileMenuOpen(false);
+                  window.location.hash = '#/about';
                 }}
                 className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-center font-medium"
               >
                 {t(lang, 'aboutUs')}
-              </button>
-              <button
-                onClick={() => {
+              </a>
+              <a
+                href="#/cookies"
+                onClick={(e) => {
+                  e.preventDefault();
                   onOpenLegal('cookies');
                   setMobileMenuOpen(false);
+                  window.location.hash = '#/cookies';
                 }}
                 className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-center font-medium"
               >
                 {t(lang, 'cookiePolicy')}
-              </button>
+              </a>
             </div>
           )}
         </div>
@@ -260,3 +309,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+

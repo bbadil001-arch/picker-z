@@ -28,16 +28,42 @@ async function startServer() {
     const baseUrl = `${protocol}://${host}`;
     const languages = ["en", "ar", "fr", "es", "zh", "th", "tl", "ko", "ja"];
 
+    const routes = [
+      { path: "", priority: "1.0", changefreq: "daily" },
+      { path: "yesno", priority: "0.9", changefreq: "daily" },
+      { path: "numbers", priority: "0.9", changefreq: "daily" },
+      { path: "names", priority: "0.9", changefreq: "daily" },
+      { path: "articles", priority: "0.9", changefreq: "weekly" },
+      { path: "articles/how-randomizer-wheel-works-fairness-algorithm", priority: "0.85", changefreq: "monthly" },
+      { path: "articles/how-to-run-instagram-tiktok-giveaways-raffles", priority: "0.85", changefreq: "monthly" },
+      { path: "articles/10-creative-classroom-wheel-spinner-ideas-teachers", priority: "0.85", changefreq: "monthly" },
+      { path: "articles/decision-making-truth-or-dare-party-games-wheel", priority: "0.85", changefreq: "monthly" },
+      { path: "faq", priority: "0.8", changefreq: "weekly" },
+      { path: "privacy", priority: "0.7", changefreq: "monthly" },
+      { path: "terms", priority: "0.7", changefreq: "monthly" },
+      { path: "about", priority: "0.7", changefreq: "monthly" },
+      { path: "cookies", priority: "0.7", changefreq: "monthly" },
+      { path: "disclaimer", priority: "0.7", changefreq: "monthly" },
+      { path: "contact", priority: "0.7", changefreq: "monthly" },
+    ];
+
+    const today = new Date().toISOString().split("T")[0];
+
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
-  <url>
-    <loc>${baseUrl}/</loc>
-    <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-${languages.map((l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${baseUrl}/?lang=${l}"/>`).join("\n")}
-  </url>
+${routes
+  .map((route) => {
+    const pageUrl = route.path ? `${baseUrl}/#/${route.path}` : `${baseUrl}/`;
+    return `  <url>
+    <loc>${pageUrl}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>${route.changefreq}</changefreq>
+    <priority>${route.priority}</priority>
+${languages.map((l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${baseUrl}/?lang=${l}${route.path ? `&#47;${route.path}` : ""}"/>`).join("\n")}
+  </url>`;
+  })
+  .join("\n")}
 </urlset>`;
 
     res.header("Content-Type", "application/xml");
