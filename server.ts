@@ -100,35 +100,37 @@ async function startServer() {
 
   // XML Sitemap Endpoint with Clean URLs (No #)
   app.get("/sitemap.xml", (req, res) => {
-    const host = req.get("host") || "randomizerwheel.com";
-    const protocol = req.protocol || "https";
-    const baseUrl = `${protocol}://${host}`;
-    const languages = ["en", "ar", "fr", "es", "zh", "th", "tl", "ko", "ja"];
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const host = req.get("host") || "randomizerwheel.com";
+      const protocol = req.protocol || "https";
+      const baseUrl = `${protocol}://${host}`;
+      const languages = ["en", "ar", "fr", "es", "zh", "th", "tl", "ko", "ja"];
 
-    const articleRoutes = (ARTICLES || []).map((art) => ({
-      path: `articles/${art.slug}`,
-      priority: "0.85",
-      changefreq: "monthly",
-      lastmod: art.publishedDate || today,
-    }));
+      const articleRoutes = (ARTICLES || []).map((art) => ({
+        path: `articles/${art.slug}`,
+        priority: "0.85",
+        changefreq: "monthly",
+        lastmod: art.publishedDate || today,
+      }));
 
-    const routes = [
-      { path: "", priority: "1.0", changefreq: "daily", lastmod: today },
-      { path: "yesno", priority: "0.9", changefreq: "daily", lastmod: today },
-      { path: "numbers", priority: "0.9", changefreq: "daily", lastmod: today },
-      { path: "names", priority: "0.9", changefreq: "daily", lastmod: today },
-      { path: "articles", priority: "0.9", changefreq: "weekly", lastmod: today },
-      ...articleRoutes,
-      { path: "faq", priority: "0.8", changefreq: "weekly", lastmod: today },
-      { path: "privacy", priority: "0.7", changefreq: "monthly", lastmod: today },
-      { path: "terms", priority: "0.7", changefreq: "monthly", lastmod: today },
-      { path: "about", priority: "0.7", changefreq: "monthly", lastmod: today },
-      { path: "cookies", priority: "0.7", changefreq: "monthly", lastmod: today },
-      { path: "disclaimer", priority: "0.7", changefreq: "monthly", lastmod: today },
-      { path: "contact", priority: "0.7", changefreq: "monthly", lastmod: today },
-    ];
+      const routes = [
+        { path: "", priority: "1.0", changefreq: "daily", lastmod: today },
+        { path: "yesno", priority: "0.9", changefreq: "daily", lastmod: today },
+        { path: "numbers", priority: "0.9", changefreq: "daily", lastmod: today },
+        { path: "names", priority: "0.9", changefreq: "daily", lastmod: today },
+        { path: "articles", priority: "0.9", changefreq: "weekly", lastmod: today },
+        ...articleRoutes,
+        { path: "faq", priority: "0.8", changefreq: "weekly", lastmod: today },
+        { path: "privacy", priority: "0.7", changefreq: "monthly", lastmod: today },
+        { path: "terms", priority: "0.7", changefreq: "monthly", lastmod: today },
+        { path: "about", priority: "0.7", changefreq: "monthly", lastmod: today },
+        { path: "cookies", priority: "0.7", changefreq: "monthly", lastmod: today },
+        { path: "disclaimer", priority: "0.7", changefreq: "monthly", lastmod: today },
+        { path: "contact", priority: "0.7", changefreq: "monthly", lastmod: today },
+      ];
 
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
 ${routes
@@ -146,8 +148,11 @@ ${languages.map((l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${
   .join("\n")}
 </urlset>`;
 
-    res.header("Content-Type", "application/xml");
-    res.send(xml);
+      res.header("Content-Type", "application/xml; charset=utf-8");
+      res.send(xml);
+    } catch (e: any) {
+      res.status(500).type("text/plain").send("Error generating sitemap");
+    }
   });
 
   // robots.txt
