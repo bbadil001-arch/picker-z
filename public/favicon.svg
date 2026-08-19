@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </radialGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="slice1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#EF4444"/><stop offset="100%" stop-color="#DC2626"/></linearGradient>
+    <linearGradient id="slice2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#F59E0B"/><stop offset="100%" stop-color="#D97706"/></linearGradient>
+    <linearGradient id="slice3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#10B981"/><stop offset="100%" stop-color="#059669"/></linearGradient>
+    <linearGradient id="slice4" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#06B6D4"/><stop offset="100%" stop-color="#0891B2"/></linearGradient>
+    <linearGradient id="slice5" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#3B82F6"/><stop offset="100%" stop-color="#2563EB"/></linearGradient>
+    <linearGradient id="slice6" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8B5CF6"/><stop offset="100%" stop-color="#7C3AED"/></linearGradient>
+    <linearGradient id="slice7" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#EC4899"/><stop offset="100%" stop-color="#DB2777"/></linearGradient>
+    <linearGradient id="slice8" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#14B8A6"/><stop offset="100%" stop-color="#0D9488"/></linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Background Rounded Canvas -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)"/>
+
+  <!-- Outer Glowing Ring -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="url(#goldGrad)" stroke-width="8" opacity="0.4"/>
+  <circle cx="256" cy="256" r="200" fill="#0B0F19" stroke="#334155" stroke-width="6" filter="url(#shadow)"/>
+
+  <!-- Wheel Slices (8 segments) -->
+  <g transform="translate(256, 256)">
+    <!-- Slice 1 (0 to 45 deg) -->
+    <path d="M 0 0 L 195 0 A 195 195 0 0 1 137.88 137.88 Z" fill="url(#slice1)"/>
+    <!-- Slice 2 (45 to 90 deg) -->
+    <path d="M 0 0 L 137.88 137.88 A 195 195 0 0 1 0 195 Z" fill="url(#slice2)"/>
+    <!-- Slice 3 (90 to 135 deg) -->
+    <path d="M 0 0 L 0 195 A 195 195 0 0 1 -137.88 137.88 Z" fill="url(#slice3)"/>
+    <!-- Slice 4 (135 to 180 deg) -->
+    <path d="M 0 0 L -137.88 137.88 A 195 195 0 0 1 -195 0 Z" fill="url(#slice4)"/>
+    <!-- Slice 5 (180 to 225 deg) -->
+    <path d="M 0 0 L -195 0 A 195 195 0 0 1 -137.88 -137.88 Z" fill="url(#slice5)"/>
+    <!-- Slice 6 (225 to 270 deg) -->
+    <path d="M 0 0 L -137.88 -137.88 A 195 195 0 0 1 0 -195 Z" fill="url(#slice6)"/>
+    <!-- Slice 7 (270 to 315 deg) -->
+    <path d="M 0 0 L 0 -195 A 195 195 0 0 1 137.88 -137.88 Z" fill="url(#slice7)"/>
+    <!-- Slice 8 (315 to 360 deg) -->
+    <path d="M 0 0 L 137.88 -137.88 A 195 195 0 0 1 195 0 Z" fill="url(#slice8)"/>
+  </g>
+
+  <!-- Wheel Outer Rim with Decorative Pegs -->
+  <circle cx="256" cy="256" r="195" fill="none" stroke="url(#goldGrad)" stroke-width="8"/>
+  <circle cx="256" cy="256" r="190" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.3"/>
+
+  <!-- Center Hub -->
+  <circle cx="256" cy="256" r="54" fill="#0F172A" stroke="url(#goldGrad)" stroke-width="7" filter="url(#shadow)"/>
+  <circle cx="256" cy="256" r="42" fill="url(#goldGrad)"/>
+  <circle cx="256" cy="256" r="30" fill="#0F172A"/>
+  
+  <!-- Central Star / Sparkle Icon -->
+  <path d="M 256 238 L 260 252 L 274 256 L 260 260 L 256 274 L 252 260 L 238 256 L 252 252 Z" fill="url(#goldGrad)"/>
+
+  <!-- Top Pointer Arrow -->
+  <g filter="url(#shadow)">
+    <polygon points="256,92 238,50 274,50" fill="url(#goldGrad)" stroke="#78350F" stroke-width="2"/>
+    <circle cx="256" cy="50" r="10" fill="#FDE047"/>
+  </g>
+</svg>

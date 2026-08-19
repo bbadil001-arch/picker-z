@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="bgGlow" cx="25%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="60%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </radialGradient>
+    <radialGradient id="goldGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    
+    <!-- Slice Gradients -->
+    <linearGradient id="s1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#EF4444"/><stop offset="100%" stop-color="#DC2626"/></linearGradient>
+    <linearGradient id="s2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#F59E0B"/><stop offset="100%" stop-color="#D97706"/></linearGradient>
+    <linearGradient id="s3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#10B981"/><stop offset="100%" stop-color="#059669"/></linearGradient>
+    <linearGradient id="s4" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#06B6D4"/><stop offset="100%" stop-color="#0891B2"/></linearGradient>
+    <linearGradient id="s5" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#3B82F6"/><stop offset="100%" stop-color="#2563EB"/></linearGradient>
+    <linearGradient id="s6" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8B5CF6"/><stop offset="100%" stop-color="#7C3AED"/></linearGradient>
+    <linearGradient id="s7" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#EC4899"/><stop offset="100%" stop-color="#DB2777"/></linearGradient>
+    <linearGradient id="s8" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#14B8A6"/><stop offset="100%" stop-color="#0D9488"/></linearGradient>
+    
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="30" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <!-- Deep Dark Canvas -->
+  <rect width="1200" height="630" fill="url(#bgGlow)"/>
+  
+  <!-- Subtle Background Grid lines -->
+  <g stroke="#334155" stroke-width="1" opacity="0.15">
+    <line x1="0" y1="100" x2="1200" y2="100"/>
+    <line x1="0" y1="200" x2="1200" y2="200"/>
+    <line x1="0" y1="300" x2="1200" y2="300"/>
+    <line x1="0" y1="400" x2="1200" y2="400"/>
+    <line x1="0" y1="500" x2="1200" y2="500"/>
+    <line x1="200" y1="0" x2="200" y2="630"/>
+    <line x1="400" y1="0" x2="400" y2="630"/>
+    <line x1="600" y1="0" x2="600" y2="630"/>
+    <line x1="800" y1="0" x2="800" y2="630"/>
+    <line x1="1000" y1="0" x2="1000" y2="630"/>
+  </g>
+
+  <!-- Decorative Glowing Orbs -->
+  <circle cx="950" cy="315" r="300" fill="url(#goldGlow)"/>
+  <circle cx="150" cy="120" r="200" fill="#38BDF8" opacity="0.06"/>
+
+  <!-- Left Side: Content & Branding -->
+  <g transform="translate(100, 110)">
+    <!-- Top Pill Badge -->
+    <rect x="0" y="0" width="280" height="42" rx="21" fill="#F59E0B" fill-opacity="0.12" stroke="#F59E0B" stroke-width="1.5" stroke-opacity="0.3"/>
+    <circle cx="24" cy="21" r="6" fill="#F59E0B"/>
+    <text x="42" y="27" font-family="'Plus Jakarta Sans', sans-serif" font-size="15" font-weight="800" fill="#FDE047" letter-spacing="1.5">RANDOMIZERWHEEL.COM</text>
+
+    <!-- Main Title -->
+    <text x="0" y="110" font-family="'Plus Jakarta Sans', sans-serif" font-size="52" font-weight="900" fill="#FFFFFF" letter-spacing="-1">
+      Custom Spin Wheel &amp;
+    </text>
+    <text x="0" y="170" font-family="'Plus Jakarta Sans', sans-serif" font-size="52" font-weight="900" fill="url(#goldGrad)" letter-spacing="-1">
+      Random Name Picker
+    </text>
+
+    <!-- Description -->
+    <text x="0" y="230" font-family="'Plus Jakarta Sans', sans-serif" font-size="20" font-weight="500" fill="#94A3B8">
+      100% Free, Fair &amp; Secure Decision Maker for Giveaways,
+    </text>
+    <text x="0" y="262" font-family="'Plus Jakarta Sans', sans-serif" font-size="20" font-weight="500" fill="#94A3B8">
+      Classrooms, Raffles, Games &amp; Decision Fatigue.
+    </text>
+
+    <!-- Feature Badges -->
+    <g transform="translate(0, 310)">
+      <rect x="0" y="0" width="160" height="44" rx="14" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
+      <text x="24" y="28" font-family="'Plus Jakarta Sans', sans-serif" font-size="15" font-weight="700" fill="#E2E8F0">⚡ 60FPS Physics</text>
+
+      <rect x="175" y="0" width="165" height="44" rx="14" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
+      <text x="195" y="28" font-family="'Plus Jakarta Sans', sans-serif" font-size="15" font-weight="700" fill="#E2E8F0">🛡️ 100% Client-Safe</text>
+
+      <rect x="355" y="0" width="155" height="44" rx="14" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
+      <text x="375" y="28" font-family="'Plus Jakarta Sans', sans-serif" font-size="15" font-weight="700" fill="#E2E8F0">✨ AI Generator</text>
+    </g>
+  </g>
+
+  <!-- Right Side: Beautiful 3D-styled Spin Wheel -->
+  <g transform="translate(930, 315)" filter="url(#cardShadow)">
+    <!-- Wheel Outer Rim Shadow -->
+    <circle cx="0" cy="0" r="235" fill="#0B0F19" stroke="#334155" stroke-width="6"/>
+
+    <!-- Wheel Slices (8 segments) -->
+    <path d="M 0 0 L 220 0 A 220 220 0 0 1 155.56 155.56 Z" fill="url(#s1)"/>
+    <path d="M 0 0 L 155.56 155.56 A 220 220 0 0 1 0 220 Z" fill="url(#s2)"/>
+    <path d="M 0 0 L 0 220 A 220 220 0 0 1 -155.56 155.56 Z" fill="url(#s3)"/>
+    <path d="M 0 0 L -155.56 155.56 A 220 220 0 0 1 -220 0 Z" fill="url(#s4)"/>
+    <path d="M 0 0 L -220 0 A 220 220 0 0 1 -155.56 -155.56 Z" fill="url(#s5)"/>
+    <path d="M 0 0 L -155.56 -155.56 A 220 220 0 0 1 0 -220 Z" fill="url(#s6)"/>
+    <path d="M 0 0 L 0 -220 A 220 220 0 0 1 155.56 -155.56 Z" fill="url(#s7)"/>
+    <path d="M 0 0 L 155.56 -155.56 A 220 220 0 0 1 220 0 Z" fill="url(#s8)"/>
+
+    <!-- Outer Golden Ring -->
+    <circle cx="0" cy="0" r="220" fill="none" stroke="url(#goldGrad)" stroke-width="10"/>
+    <circle cx="0" cy="0" r="215" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.4"/>
+
+    <!-- Slice Labels -->
+    <g font-family="'Plus Jakarta Sans', sans-serif" font-size="16" font-weight="800" fill="#FFFFFF" text-anchor="middle">
+      <text transform="rotate(22.5) translate(130, 6)">Emma</text>
+      <text transform="rotate(67.5) translate(130, 6)">Liam</text>
+      <text transform="rotate(112.5) translate(130, 6)">Sophia</text>
+      <text transform="rotate(157.5) translate(130, 6)">Lucas</text>
+      <text transform="rotate(202.5) translate(130, 6)">Olivia</text>
+      <text transform="rotate(247.5) translate(130, 6)">Noah</text>
+      <text transform="rotate(292.5) translate(130, 6)">Ava</text>
+      <text transform="rotate(337.5) translate(130, 6)">Jackson</text>
+    </g>
+
+    <!-- Center Hub -->
+    <circle cx="0" cy="0" r="60" fill="#0F172A" stroke="url(#goldGrad)" stroke-width="8"/>
+    <circle cx="0" cy="0" r="46" fill="url(#goldGrad)"/>
+    <circle cx="0" cy="0" r="34" fill="#0F172A"/>
+    <text x="0" y="7" font-family="'Plus Jakarta Sans', sans-serif" font-size="20" font-weight="900" fill="#FDE047" text-anchor="middle">SPIN</text>
+
+    <!-- Top Indicator Pointer -->
+    <g transform="translate(0, -220)">
+      <polygon points="0,32 -20,-18 20,-18" fill="url(#goldGrad)" stroke="#78350F" stroke-width="2.5"/>
+      <circle cx="0" cy="-18" r="12" fill="#FDE047" stroke="#78350F" stroke-width="2"/>
+    </g>
+  </g>
+</svg>

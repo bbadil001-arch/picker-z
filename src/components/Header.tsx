@@ -1,19 +1,10 @@
-import React, { useState } from 'react';
-import { Disc, Globe, Maximize, Minimize, Share2, Check, Menu, X, Dices, HelpCircle, UserCheck, CheckCircle2, Mail, Shield, BookOpen } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Disc, Share2, Globe, Check, Maximize, Minimize, Menu, X, Sparkles, BookOpen, CheckCircle2, Dices, HelpCircle, UserCheck, Mail } from 'lucide-react';
 import { Language } from '../types';
-import { LegalDocType } from '../data/legalContent';
 import { LANGUAGES, t } from '../utils/translations';
+import { LegalDocType } from '../data/legalContent';
 
-export type ActivePage =
-  | 'wheel'
-  | 'yesno'
-  | 'numbers'
-  | 'names'
-  | 'faq'
-  | 'articles'
-  | 'article-detail'
-  | 'legal'
-  | 'contact';
+export type ActivePage = 'wheel' | 'yesno' | 'numbers' | 'names' | 'articles' | 'article-detail' | 'legal' | 'contact' | 'faq';
 
 interface HeaderProps {
   lang: Language;
@@ -34,18 +25,24 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenContact,
   onOpenLegal,
 }) => {
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [copiedShare, setCopiedShare] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
     } else {
       if (document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
-        setIsFullscreen(false);
       }
     }
   };
@@ -57,12 +54,12 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const navItems = [
-    { id: 'wheel' as ActivePage, labelKey: 'navWheel', icon: Disc, href: '#/wheel' },
-    { id: 'yesno' as ActivePage, labelKey: 'navYesNo', icon: CheckCircle2, href: '#/yesno' },
-    { id: 'numbers' as ActivePage, labelKey: 'navNumbers', icon: Dices, href: '#/numbers' },
-    { id: 'names' as ActivePage, labelKey: 'navNames', icon: UserCheck, href: '#/names' },
-    { id: 'articles' as ActivePage, labelKey: 'navArticles', icon: BookOpen, href: '#/articles' },
-    { id: 'faq' as ActivePage, labelKey: 'navFaq', icon: HelpCircle, href: '#/faq' },
+    { id: 'wheel' as ActivePage, labelKey: 'navWheel', icon: Disc, href: '/wheel' },
+    { id: 'yesno' as ActivePage, labelKey: 'navYesNo', icon: CheckCircle2, href: '/yesno' },
+    { id: 'numbers' as ActivePage, labelKey: 'navNumbers', icon: Dices, href: '/numbers' },
+    { id: 'names' as ActivePage, labelKey: 'navNames', icon: UserCheck, href: '/names' },
+    { id: 'articles' as ActivePage, labelKey: 'navArticles', icon: BookOpen, href: '/articles' },
+    { id: 'faq' as ActivePage, labelKey: 'navFaq', icon: HelpCircle, href: '/faq' },
   ];
 
   return (
@@ -70,11 +67,10 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
         {/* Logo & Brand Link */}
         <a
-          href="#/wheel"
+          href="/wheel"
           onClick={(e) => {
             e.preventDefault();
             setActivePage('wheel');
-            window.location.hash = '#/wheel';
           }}
           className="flex items-center gap-2 sm:gap-2.5 min-w-0 cursor-pointer group"
         >
@@ -111,7 +107,6 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={(e) => {
                   e.preventDefault();
                   setActivePage(item.id);
-                  window.location.hash = item.href;
                 }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   isActive
@@ -130,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Contact Us Button / Link */}
           <a
-            href="#/contact"
+            href="/contact"
             onClick={(e) => {
               e.preventDefault();
               if (onOpenContact) {
@@ -138,7 +133,6 @@ export const Header: React.FC<HeaderProps> = ({
               } else {
                 setActivePage('contact');
               }
-              window.location.hash = '#/contact';
             }}
             className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 rounded-xl text-xs font-bold border border-amber-500/30 transition shadow-sm"
             title={t(lang, 'contactUs')}
@@ -220,7 +214,6 @@ export const Header: React.FC<HeaderProps> = ({
                   e.preventDefault();
                   setActivePage(item.id);
                   setMobileMenuOpen(false);
-                  window.location.hash = item.href;
                 }}
                 className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                   isActive
@@ -235,7 +228,7 @@ export const Header: React.FC<HeaderProps> = ({
           })}
 
           <a
-            href="#/contact"
+            href="/contact"
             onClick={(e) => {
               e.preventDefault();
               if (onOpenContact) {
@@ -244,7 +237,6 @@ export const Header: React.FC<HeaderProps> = ({
                 setActivePage('contact');
               }
               setMobileMenuOpen(false);
-              window.location.hash = '#/contact';
             }}
             className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-amber-300 bg-amber-500/10 border border-amber-500/20"
           >
@@ -255,48 +247,44 @@ export const Header: React.FC<HeaderProps> = ({
           {onOpenLegal && (
             <div className="pt-2 border-t border-slate-800 grid grid-cols-2 gap-1.5 text-[11px]">
               <a
-                href="#/privacy"
+                href="/privacy"
                 onClick={(e) => {
                   e.preventDefault();
                   onOpenLegal('privacy');
                   setMobileMenuOpen(false);
-                  window.location.hash = '#/privacy';
                 }}
                 className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-center font-medium"
               >
                 {t(lang, 'privacyPolicy')}
               </a>
               <a
-                href="#/terms"
+                href="/terms"
                 onClick={(e) => {
                   e.preventDefault();
                   onOpenLegal('terms');
                   setMobileMenuOpen(false);
-                  window.location.hash = '#/terms';
                 }}
                 className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-center font-medium"
               >
                 {t(lang, 'termsOfService')}
               </a>
               <a
-                href="#/about"
+                href="/about"
                 onClick={(e) => {
                   e.preventDefault();
                   onOpenLegal('about');
                   setMobileMenuOpen(false);
-                  window.location.hash = '#/about';
                 }}
                 className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-center font-medium"
               >
                 {t(lang, 'aboutUs')}
               </a>
               <a
-                href="#/cookies"
+                href="/cookies"
                 onClick={(e) => {
                   e.preventDefault();
                   onOpenLegal('cookies');
                   setMobileMenuOpen(false);
-                  window.location.hash = '#/cookies';
                 }}
                 className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-center font-medium"
               >
@@ -309,4 +297,3 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-

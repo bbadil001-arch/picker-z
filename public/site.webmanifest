@@ -1,0 +1,17 @@
+{
+  "name": "RandomizerWheel - Custom Spin Wheel & Random Name Picker",
+  "short_name": "RandomizerWheel",
+  "description": "Free customizable spin wheel spinner and random name picker for giveaways, raffles, decisions, and classroom activities.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#F59E0B",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

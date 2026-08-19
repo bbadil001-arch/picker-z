@@ -34,7 +34,7 @@ export const FullLegalPage: React.FC<FullLegalPageProps> = ({
   };
 
   const handleShare = () => {
-    const url = `${window.location.origin}${window.location.pathname}#/${currentTab}`;
+    const url = `${window.location.origin}/${currentTab}`;
     navigator.clipboard.writeText(url);
   };
 
@@ -78,11 +78,10 @@ export const FullLegalPage: React.FC<FullLegalPageProps> = ({
           return (
             <a
               key={tab.id}
-              href={`#/${tab.id}`}
+              href={`/${tab.id}`}
               onClick={(e) => {
                 e.preventDefault();
                 onSelectTab(tab.id);
-                window.location.hash = `#/${tab.id}`;
               }}
               className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border ${
                 isActive

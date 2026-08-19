@@ -59,7 +59,7 @@ export const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
 
   // Copy link
   const handleCopyLink = () => {
-    const url = `${window.location.origin}${window.location.pathname}#/articles/${article.slug}`;
+    const url = `${window.location.origin}/articles/${article.slug}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -68,7 +68,7 @@ export const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
   // Social share
   const handleShare = (platform: 'twitter' | 'facebook' | 'whatsapp' | 'telegram') => {
     const url = encodeURIComponent(
-      `${window.location.origin}${window.location.pathname}#/articles/${article.slug}`
+      `${window.location.origin}/articles/${article.slug}`
     );
     const text = encodeURIComponent(title);
     let shareUrl = '';
@@ -418,11 +418,10 @@ export const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
               return (
                 <a
                   key={rel.slug}
-                  href={`#/articles/${rel.slug}`}
+                  href={`/articles/${rel.slug}`}
                   onClick={(e) => {
                     e.preventDefault();
                     onNavigateToArticle(rel.slug);
-                    window.location.hash = `#/articles/${rel.slug}`;
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="group bg-slate-900/80 hover:bg-slate-900 p-5 rounded-2xl border border-slate-800 hover:border-amber-500/40 transition-all space-y-2 cursor-pointer"

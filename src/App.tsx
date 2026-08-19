@@ -17,6 +17,7 @@ import { ContactPage } from './components/ContactPage';
 import { LegalDocType } from './data/legalContent';
 import { ARTICLES } from './data/articles';
 import { LANGUAGES, t } from './utils/translations';
+import { sanitizeOptionLabel, sanitizeHtml, safeDecodeURI } from './utils/security';
 import { Sparkles, Dices, HelpCircle, CheckCircle2, UserCheck, Disc, Mail, Shield, BookOpen } from 'lucide-react';
 
 const DEFAULT_OPTIONS: WheelOption[] = [
@@ -65,7 +66,15 @@ export default function App() {
   const [options, setOptions] = useState<WheelOption[]>(() => {
     try {
       const saved = localStorage.getItem('rw_options');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item) => ({
+            ...item,
+            label: sanitizeOptionLabel(item.label || ''),
+          }));
+        }
+      }
     } catch (e) {}
     return DEFAULT_OPTIONS;
   });
@@ -99,39 +108,55 @@ export default function App() {
     } catch (e) {}
   }, [lang]);
 
-  // URL Hash Router parser
-  const parseRouteFromHash = useCallback(() => {
+  // Clean Path Router (No # hash in URLs, with automatic hash migration)
+  const parseCurrentRoute = useCallback(() => {
     const rawHash = window.location.hash.trim();
-    if (!rawHash || rawHash === '#' || rawHash === '#/') {
-      setActivePage('wheel');
-      return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryWheel = urlParams.get('wheel');
+
+    // 1. Check if shared wheel data is present in search params or legacy hash
+    let sharedJson: string | null = queryWheel;
+    if (!sharedJson && rawHash.startsWith('#wheel=')) {
+      sharedJson = rawHash.replace('#wheel=', '');
     }
 
-    if (rawHash.startsWith('#wheel=')) {
+    if (sharedJson) {
       try {
-        const jsonStr = decodeURIComponent(rawHash.replace('#wheel=', ''));
+        const jsonStr = safeDecodeURI(sharedJson);
         const parsed = JSON.parse(jsonStr);
         if (parsed.items && Array.isArray(parsed.items)) {
           const loadedOptions: WheelOption[] = parsed.items.map((item: string, idx: number) => ({
             id: 'shared_' + idx + '_' + Date.now(),
-            label: item,
+            label: sanitizeOptionLabel(String(item)),
             hidden: false,
           }));
           setOptions(loadedOptions);
         }
         if (parsed.title) {
-          setConfig((prev) => ({ ...prev, title: parsed.title }));
+          setConfig((prev) => ({ ...prev, title: sanitizeHtml(String(parsed.title)) }));
         }
         setActivePage('wheel');
+        // Clean URL to base without long query
+        window.history.replaceState(null, '', '/');
+        return;
       } catch (e) {}
-      return;
     }
 
-    const cleanHash = rawHash.replace(/^#\/?/, '');
+    // 2. Backward compatibility: If URL has legacy #/route or #route, convert cleanly to clean pathname
+    if (rawHash && rawHash !== '#' && rawHash !== '#/') {
+      const legacyPath = rawHash.replace(/^#\/?/, '').trim();
+      if (legacyPath) {
+        const targetCleanUrl = `/${legacyPath}`;
+        window.history.replaceState(null, '', targetCleanUrl);
+      }
+    }
 
-    if (cleanHash === 'wheel' || cleanHash === '') {
+    // 3. Parse clean pathname
+    const pathname = window.location.pathname.replace(/^\/+|\/+$/g, '');
+
+    if (!pathname || pathname === 'wheel') {
       setActivePage('wheel');
-    } else if (cleanHash === 'yesno') {
+    } else if (pathname === 'yesno') {
       setActivePage('yesno');
       const yesnoItems = lang === 'ar' ? ['نعم', 'لا', 'ربما', 'مرة أخرى'] : ['YES', 'NO', 'MAYBE', 'SPIN AGAIN'];
       setOptions(
@@ -145,45 +170,60 @@ export default function App() {
         ...prev,
         title: t(lang, 'yesNoTitle'),
       }));
-    } else if (cleanHash === 'numbers') {
+    } else if (pathname === 'numbers') {
       setActivePage('numbers');
-    } else if (cleanHash === 'names') {
+    } else if (pathname === 'names') {
       setActivePage('names');
       setConfig((prev) => ({
         ...prev,
         title: t(lang, 'namesTitle'),
       }));
-    } else if (cleanHash === 'faq') {
+    } else if (pathname === 'faq') {
       setActivePage('wheel');
       setTimeout(() => {
         const el = document.getElementById('faq-section');
         if (el) el.scrollIntoView({ behavior: 'smooth' });
       }, 100);
-    } else if (cleanHash === 'articles') {
+    } else if (pathname === 'articles') {
       setActivePage('articles');
-    } else if (cleanHash.startsWith('articles/')) {
-      const slug = cleanHash.replace('articles/', '');
+    } else if (pathname.startsWith('articles/')) {
+      const slug = sanitizeHtml(pathname.replace('articles/', ''));
       setCurrentArticleSlug(slug);
       setActivePage('article-detail');
-    } else if (['privacy', 'terms', 'about', 'cookies', 'disclaimer'].includes(cleanHash)) {
-      setLegalTab(cleanHash as LegalDocType);
+    } else if (['privacy', 'terms', 'about', 'cookies', 'disclaimer'].includes(pathname)) {
+      setLegalTab(pathname as LegalDocType);
       setActivePage('legal');
-    } else if (cleanHash === 'contact') {
+    } else if (pathname === 'contact') {
       setActivePage('contact');
+    } else {
+      // Fallback
+      setActivePage('wheel');
     }
   }, [lang]);
 
-  // Listen to hash change & popstate
+  // Listen to popstate (browser back/forward) and initial load
   useEffect(() => {
-    parseRouteFromHash();
-    const handleHashChange = () => parseRouteFromHash();
-    window.addEventListener('hashchange', handleHashChange);
-    window.addEventListener('popstate', handleHashChange);
+    parseCurrentRoute();
+    const handlePopState = () => parseCurrentRoute();
+    window.addEventListener('popstate', handlePopState);
     return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-      window.removeEventListener('popstate', handleHashChange);
+      window.removeEventListener('popstate', handlePopState);
     };
-  }, [parseRouteFromHash]);
+  }, [parseCurrentRoute]);
+
+  // Clean Navigation Handler
+  const navigateTo = (path: string, options?: { replace?: boolean; scroll?: boolean }) => {
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    if (options?.replace) {
+      window.history.replaceState(null, '', cleanPath);
+    } else {
+      window.history.pushState(null, '', cleanPath);
+    }
+    parseCurrentRoute();
+    if (options?.scroll !== false) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   // Handle page menu navigation clicks
   const handlePageSelect = (page: ActivePage) => {
@@ -193,40 +233,35 @@ export default function App() {
     }
 
     if (page === 'yesno') {
-      window.location.hash = '#/yesno';
+      navigateTo('/yesno');
     } else if (page === 'numbers') {
-      window.location.hash = '#/numbers';
+      navigateTo('/numbers');
     } else if (page === 'names') {
-      window.location.hash = '#/names';
+      navigateTo('/names');
     } else if (page === 'articles') {
-      window.location.hash = '#/articles';
+      navigateTo('/articles');
     } else if (page === 'contact') {
-      window.location.hash = '#/contact';
+      navigateTo('/contact');
     } else if (page === 'faq') {
-      setActivePage('wheel');
-      window.location.hash = '#/faq';
+      navigateTo('/faq', { scroll: false });
       const el = document.getElementById('faq-section');
       if (el) el.scrollIntoView({ behavior: 'smooth' });
     } else {
-      window.location.hash = '#/wheel';
+      navigateTo('/wheel');
     }
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleOpenLegal = (tab: LegalDocType) => {
     setLegalTab(tab);
-    window.location.hash = `#/${tab}`;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigateTo(`/${tab}`);
   };
 
   const handleSelectArticle = (slug: string) => {
     setCurrentArticleSlug(slug);
-    window.location.hash = `#/articles/${slug}`;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigateTo(`/articles/${slug}`);
   };
 
-  // Save state to localStorage
+  // Save state to localStorage safely
   useEffect(() => {
     try {
       localStorage.setItem('rw_options', JSON.stringify(options));
@@ -294,14 +329,14 @@ export default function App() {
     handlePageSelect('wheel');
   };
 
-  // Generate share URL
+  // Generate clean share URL without #
   const handleShare = () => {
     const shareObj = {
       title: config.title,
       items: options.map((o) => o.label),
     };
-    const hash = '#wheel=' + encodeURIComponent(JSON.stringify(shareObj));
-    const fullUrl = window.location.origin + window.location.pathname + hash;
+    const query = '?wheel=' + encodeURIComponent(JSON.stringify(shareObj));
+    const fullUrl = window.location.origin + '/' + query;
     navigator.clipboard.writeText(fullUrl);
   };
 
@@ -464,7 +499,7 @@ export default function App() {
             {/* Col 1: Brand & Bio */}
             <div className="md:col-span-1 space-y-2.5">
               <a
-                href="#/wheel"
+                href="/wheel"
                 onClick={(e) => {
                   e.preventDefault();
                   handlePageSelect('wheel');
@@ -497,7 +532,7 @@ export default function App() {
               <ul className="space-y-1.5 text-xs">
                 <li>
                   <a
-                    href="#/wheel"
+                    href="/wheel"
                     onClick={(e) => {
                       e.preventDefault();
                       handlePageSelect('wheel');
@@ -509,7 +544,7 @@ export default function App() {
                 </li>
                 <li>
                   <a
-                    href="#/yesno"
+                    href="/yesno"
                     onClick={(e) => {
                       e.preventDefault();
                       handlePageSelect('yesno');
@@ -521,7 +556,7 @@ export default function App() {
                 </li>
                 <li>
                   <a
-                    href="#/numbers"
+                    href="/numbers"
                     onClick={(e) => {
                       e.preventDefault();
                       handlePageSelect('numbers');
@@ -533,7 +568,7 @@ export default function App() {
                 </li>
                 <li>
                   <a
-                    href="#/names"
+                    href="/names"
                     onClick={(e) => {
                       e.preventDefault();
                       handlePageSelect('names');
@@ -555,7 +590,7 @@ export default function App() {
               <ul className="space-y-1.5 text-xs">
                 <li>
                   <a
-                    href="#/articles"
+                    href="/articles"
                     onClick={(e) => {
                       e.preventDefault();
                       handlePageSelect('articles');
@@ -568,7 +603,7 @@ export default function App() {
                 {ARTICLES.slice(0, 3).map((art) => (
                   <li key={art.slug}>
                     <a
-                      href={`#/articles/${art.slug}`}
+                      href={`/articles/${art.slug}`}
                       onClick={(e) => {
                         e.preventDefault();
                         handleSelectArticle(art.slug);
@@ -592,7 +627,7 @@ export default function App() {
               <ul className="space-y-1.5 text-xs">
                 <li>
                   <a
-                    href="#/privacy"
+                    href="/privacy"
                     onClick={(e) => {
                       e.preventDefault();
                       handleOpenLegal('privacy');
@@ -604,7 +639,7 @@ export default function App() {
                 </li>
                 <li>
                   <a
-                    href="#/terms"
+                    href="/terms"
                     onClick={(e) => {
                       e.preventDefault();
                       handleOpenLegal('terms');
@@ -616,7 +651,7 @@ export default function App() {
                 </li>
                 <li>
                   <a
-                    href="#/about"
+                    href="/about"
                     onClick={(e) => {
                       e.preventDefault();
                       handleOpenLegal('about');
@@ -628,7 +663,7 @@ export default function App() {
                 </li>
                 <li>
                   <a
-                    href="#/cookies"
+                    href="/cookies"
                     onClick={(e) => {
                       e.preventDefault();
                       handleOpenLegal('cookies');
@@ -640,7 +675,7 @@ export default function App() {
                 </li>
                 <li>
                   <a
-                    href="#/disclaimer"
+                    href="/disclaimer"
                     onClick={(e) => {
                       e.preventDefault();
                       handleOpenLegal('disclaimer');
@@ -652,7 +687,7 @@ export default function App() {
                 </li>
                 <li>
                   <a
-                    href="#/contact"
+                    href="/contact"
                     onClick={(e) => {
                       e.preventDefault();
                       handlePageSelect('contact');
@@ -678,7 +713,7 @@ export default function App() {
 
             <div className="flex items-center gap-3">
               <a
-                href="#/contact"
+                href="/contact"
                 onClick={(e) => {
                   e.preventDefault();
                   handlePageSelect('contact');

@@ -149,11 +149,10 @@ export const BlogListPage: React.FC<BlogListPageProps> = ({
             return (
               <a
                 key={article.slug}
-                href={`#/articles/${article.slug}`}
+                href={`/articles/${article.slug}`}
                 onClick={(e) => {
                   e.preventDefault();
                   onSelectArticle(article.slug);
-                  window.location.hash = `#/articles/${article.slug}`;
                 }}
                 className="group flex flex-col justify-between bg-slate-900/90 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-2xl p-6 sm:p-7 transition-all duration-200 hover:shadow-xl hover:shadow-amber-500/5 cursor-pointer"
               >

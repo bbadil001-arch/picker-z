@@ -10,18 +10,94 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// In-memory sliding window rate limiter for anti-abuse and DDoS protection
+const ipRequestCounts = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 40; // Max 40 requests/minute per IP
+
+function apiRateLimiter(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown-ip";
+  const now = Date.now();
+
+  const record = ipRequestCounts.get(ip);
+  if (!record || now > record.resetTime) {
+    ipRequestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return next();
+  }
+
+  if (record.count >= MAX_REQUESTS_PER_WINDOW) {
+    res.setHeader("Retry-After", Math.ceil((record.resetTime - now) / 1000));
+    return res.status(429).json({
+      error: "Too many requests. Please slow down and try again in a minute.",
+    });
+  }
+
+  record.count++;
+  next();
+}
+
+// Clean up stale rate limiter memory every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of ipRequestCounts.entries()) {
+    if (now > record.resetTime) {
+      ipRequestCounts.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// Anti-XSS and input sanitization helper
+function sanitizeInput(str: string): string {
+  if (!str || typeof str !== "string") return "";
+  return str
+    .replace(/[<>]/g, "") // Strip raw tag brackets
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // Strip control characters
+    .trim()
+    .slice(0, 120); // Cap length to 120 chars
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  // Security: Remove Express identity header
+  app.disable("x-powered-by");
 
-  // Health check
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", app: "RandomizerWheel" });
+  // Security: Strict payload size limiter to prevent memory exhaustion attacks
+  app.use(express.json({ limit: "25kb" }));
+
+  // Security: Comprehensive HTTP Security Headers Middleware
+  app.use((req, res, next) => {
+    // Prevent MIME-sniffing
+    res.setHeader("X-Content-Type-Options", "nosniff");
+
+    // Clickjacking protection (ALLOW-FROM / SAMEORIGIN)
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+
+    // XSS Protection for legacy browsers
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+
+    // Strict Referrer Policy
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+
+    // Restrict unauthorized browser sensor/hardware APIs
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+
+    // Content Security Policy (allows Google Fonts, inline Tailwind/Vite runtime, local API)
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; media-src 'self' data: blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;"
+    );
+
+    next();
   });
 
-  // XML Sitemap Endpoint
+  // Health check endpoint
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", app: "RandomizerWheel", secure: true });
+  });
+
+  // XML Sitemap Endpoint with Clean URLs (No #)
   app.get("/sitemap.xml", (req, res) => {
     const host = req.get("host") || "randomizerwheel.com";
     const protocol = req.protocol || "https";
@@ -54,13 +130,13 @@ async function startServer() {
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
 ${routes
   .map((route) => {
-    const pageUrl = route.path ? `${baseUrl}/#/${route.path}` : `${baseUrl}/`;
+    const pageUrl = route.path ? `${baseUrl}/${route.path}` : `${baseUrl}/`;
     return `  <url>
     <loc>${pageUrl}</loc>
     <lastmod>${today}</lastmod>
     <changefreq>${route.changefreq}</changefreq>
     <priority>${route.priority}</priority>
-${languages.map((l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${baseUrl}/?lang=${l}${route.path ? `&#47;${route.path}` : ""}"/>`).join("\n")}
+${languages.map((l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${baseUrl}/${route.path}?lang=${l}"/>`).join("\n")}
   </url>`;
   })
   .join("\n")}
@@ -80,16 +156,22 @@ ${languages.map((l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${
     res.send(`User-agent: *\nAllow: /\n\nSitemap: ${baseUrl}/sitemap.xml`);
   });
 
-  // API endpoint for AI Option Generator using Gemini
-  app.post("/api/ai-options", async (req, res) => {
+  // API endpoint for AI Option Generator using Gemini (Protected with Rate Limiter & Sanitization)
+  app.post("/api/ai-options", apiRateLimiter, async (req, res) => {
     try {
       const { topic, lang = "ar", count = 0 } = req.body || {};
 
-      if (!topic || typeof topic !== "string" || !topic.trim()) {
-        return res.status(400).json({ error: "Topic is required" });
+      const sanitizedTopic = sanitizeInput(String(topic || ""));
+      if (!sanitizedTopic) {
+        return res.status(400).json({ error: "A valid topic string is required (max 120 characters)." });
       }
 
-      const reqCount = Number(count) || 0;
+      // Whitelist language parameter
+      const allowedLangs = ["en", "ar", "fr", "es", "zh", "th", "tl", "ko", "ja"];
+      const validatedLang = allowedLangs.includes(String(lang)) ? String(lang) : "en";
+
+      // Bound count parameter
+      const reqCount = Math.min(Math.max(Number(count) || 0, 0), 50);
       const apiKey = process.env.GEMINI_API_KEY;
       let generatedOptions: string[] | null = null;
 
@@ -116,13 +198,13 @@ ${languages.map((l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${
               ? `Provide exactly ${reqCount} items.`
               : `If this topic is a closed or well-defined set (for example: "countries of Africa", "US states", "Arab countries", "months", "zodiac signs", etc.), provide ALL elements of the entire set without omitting any. Otherwise provide a comprehensive, high-quality list of 20 to 30 rich choices.`;
 
-            const prompt = `You are a generator for a spin wheel & decision-maker application.
-Topic: "${topic.trim()}"
-Language: ${lang === "ar" ? "Arabic" : "English"}
+            const prompt = `You are a safe generator for a spin wheel & decision-maker application.
+Topic: "${sanitizedTopic}"
+Language: ${validatedLang === "ar" ? "Arabic" : "English"}
 Quantity: ${countDirective}
 
 Rules:
-- Give clean, accurate, distinct names or entries.
+- Give clean, appropriate, distinct names or entries.
 - Return ONLY a JSON array of strings: ["Item 1", "Item 2", "Item 3", ...]
 - Do NOT include markdown code blocks, backticks, or any preamble or explanation.`;
 
@@ -142,17 +224,17 @@ Rules:
                 const parsed = JSON.parse(cleaned);
                 if (Array.isArray(parsed) && parsed.length > 0) {
                   generatedOptions = parsed
-                    .map((item) => String(item).trim())
+                    .map((item) => sanitizeInput(String(item)))
                     .filter((item) => item.length > 0);
                   if (generatedOptions.length > 0) {
                     break; // Success!
                   }
                 }
               } catch {
-                // If not strict JSON, parse line-by-line
+                // If not strict JSON, parse line-by-line safely
                 const lines = rawText
                   .split("\n")
-                  .map((l) => l.replace(/^(\d+[\.\)\-:]\s*|[\*\-•]\s*|["'\[\],])/g, "").trim())
+                  .map((l) => sanitizeInput(l.replace(/^(\d+[\.\)\-:]\s*|[\*\-•]\s*|["'\[\],])/g, "")))
                   .filter((l) => l.length > 0 && !l.startsWith("{") && !l.startsWith("}"));
 
                 if (lines.length >= 2) {
@@ -162,7 +244,7 @@ Rules:
               }
             }
           } catch (modelErr: any) {
-            console.warn(`Model ${modelName} failed:`, modelErr?.message || modelErr);
+            console.warn(`Model ${modelName} fallback triggered:`, modelErr?.message || "model error");
           }
         }
       }
@@ -174,11 +256,10 @@ Rules:
         return res.json({ options: generatedOptions });
       }
 
-      // Fallback generator when API key is missing or model endpoint is unreachable
-      const lower = topic.toLowerCase();
-      const isAr = lang === "ar";
+      // Safe built-in fallback generator
+      const lower = sanitizedTopic.toLowerCase();
+      const isAr = validatedLang === "ar";
 
-      // Built-in intelligent options for common topics (Complete sets)
       if (lower.includes("africa") || lower.includes("افريقيا") || lower.includes("إفريقيا")) {
         const africa = isAr
           ? [
@@ -240,28 +321,27 @@ Rules:
         return res.json({ options: reqCount > 0 ? food.slice(0, reqCount) : food });
       }
 
-      // Default procedural generator
-      const clean = topic.trim();
+      // Default safe procedural generator
       const defaultCount = reqCount > 0 ? reqCount : 20;
       const generic = isAr
-        ? Array.from({ length: defaultCount }, (_, i) => `${clean} - خيار ${i + 1}`)
-        : Array.from({ length: defaultCount }, (_, i) => `${clean} - Choice ${i + 1}`);
+        ? Array.from({ length: defaultCount }, (_, i) => `${sanitizedTopic} - خيار ${i + 1}`)
+        : Array.from({ length: defaultCount }, (_, i) => `${sanitizedTopic} - Choice ${i + 1}`);
 
       return res.json({ options: generic });
     } catch (err: any) {
-      console.error("AI options generation error:", err);
+      // Never expose error stack traces
       return res.status(200).json({
         options: [
-          `${req.body?.topic || "Option"} 1`,
-          `${req.body?.topic || "Option"} 2`,
-          `${req.body?.topic || "Option"} 3`,
-          `${req.body?.topic || "Option"} 4`,
+          `Option 1`,
+          `Option 2`,
+          `Option 3`,
+          `Option 4`,
         ],
       });
     }
   });
 
-  // Vite development server or static serving
+  // Vite development server or static serving (SPA fallback)
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true, host: "0.0.0.0", port: PORT },
@@ -277,7 +357,7 @@ Rules:
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`RandomizerWheel server running on http://0.0.0.0:${PORT}`);
+    console.log(`RandomizerWheel server running securely on port ${PORT}`);
   });
 }
 
