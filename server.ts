@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import { ARTICLES } from "./src/data/articles/index.js";
 
 dotenv.config();
 
@@ -104,26 +105,28 @@ async function startServer() {
     const baseUrl = `${protocol}://${host}`;
     const languages = ["en", "ar", "fr", "es", "zh", "th", "tl", "ko", "ja"];
 
-    const routes = [
-      { path: "", priority: "1.0", changefreq: "daily" },
-      { path: "yesno", priority: "0.9", changefreq: "daily" },
-      { path: "numbers", priority: "0.9", changefreq: "daily" },
-      { path: "names", priority: "0.9", changefreq: "daily" },
-      { path: "articles", priority: "0.9", changefreq: "weekly" },
-      { path: "articles/how-randomizer-wheel-works-fairness-algorithm", priority: "0.85", changefreq: "monthly" },
-      { path: "articles/how-to-run-instagram-tiktok-giveaways-raffles", priority: "0.85", changefreq: "monthly" },
-      { path: "articles/10-creative-classroom-wheel-spinner-ideas-teachers", priority: "0.85", changefreq: "monthly" },
-      { path: "articles/decision-making-truth-or-dare-party-games-wheel", priority: "0.85", changefreq: "monthly" },
-      { path: "faq", priority: "0.8", changefreq: "weekly" },
-      { path: "privacy", priority: "0.7", changefreq: "monthly" },
-      { path: "terms", priority: "0.7", changefreq: "monthly" },
-      { path: "about", priority: "0.7", changefreq: "monthly" },
-      { path: "cookies", priority: "0.7", changefreq: "monthly" },
-      { path: "disclaimer", priority: "0.7", changefreq: "monthly" },
-      { path: "contact", priority: "0.7", changefreq: "monthly" },
-    ];
+    const articleRoutes = (ARTICLES || []).map((art) => ({
+      path: `articles/${art.slug}`,
+      priority: "0.85",
+      changefreq: "monthly",
+      lastmod: art.publishedDate || today,
+    }));
 
-    const today = new Date().toISOString().split("T")[0];
+    const routes = [
+      { path: "", priority: "1.0", changefreq: "daily", lastmod: today },
+      { path: "yesno", priority: "0.9", changefreq: "daily", lastmod: today },
+      { path: "numbers", priority: "0.9", changefreq: "daily", lastmod: today },
+      { path: "names", priority: "0.9", changefreq: "daily", lastmod: today },
+      { path: "articles", priority: "0.9", changefreq: "weekly", lastmod: today },
+      ...articleRoutes,
+      { path: "faq", priority: "0.8", changefreq: "weekly", lastmod: today },
+      { path: "privacy", priority: "0.7", changefreq: "monthly", lastmod: today },
+      { path: "terms", priority: "0.7", changefreq: "monthly", lastmod: today },
+      { path: "about", priority: "0.7", changefreq: "monthly", lastmod: today },
+      { path: "cookies", priority: "0.7", changefreq: "monthly", lastmod: today },
+      { path: "disclaimer", priority: "0.7", changefreq: "monthly", lastmod: today },
+      { path: "contact", priority: "0.7", changefreq: "monthly", lastmod: today },
+    ];
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -131,9 +134,10 @@ async function startServer() {
 ${routes
   .map((route) => {
     const pageUrl = route.path ? `${baseUrl}/${route.path}` : `${baseUrl}/`;
+    const modDate = route.lastmod || today;
     return `  <url>
     <loc>${pageUrl}</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${modDate}</lastmod>
     <changefreq>${route.changefreq}</changefreq>
     <priority>${route.priority}</priority>
 ${languages.map((l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${baseUrl}/${route.path}?lang=${l}"/>`).join("\n")}
