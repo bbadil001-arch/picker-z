@@ -4,6 +4,8 @@ import { getContrastTextColor, getSliceColors } from '../utils/colorThemes';
 import { sound } from '../utils/sound';
 import { Play, Sparkles, Share2, Check } from 'lucide-react';
 import { t } from '../utils/translations';
+import { ShareModal } from './ShareModal';
+import { copyTextToClipboard } from '../utils/clipboard';
 
 interface SpinWheelProps {
   options: WheelOption[];
@@ -344,44 +346,24 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
     }
   }, [spinTrigger]);
 
-  const [copiedShare, setCopiedShare] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Share current wheel state & result
-  const handleShareWheel = async () => {
-    const shareObj = {
-      title: config.title || '',
-      items: activeOptions.map((o) => o.label),
-    };
-    const query = '?wheel=' + encodeURIComponent(JSON.stringify(shareObj));
-    const fullUrl = `${window.location.origin}/${query}`;
-    const wheelTitle = config.title || (lang === 'ar' ? 'عجلة القرعة والخيارات العشوائية' : 'Randomizer Wheel');
-    const shareText =
-      lang === 'ar'
-        ? `🎯 أدر عجلة القرعة (${wheelTitle}) واكتشف النتيجة فوراً على RandomizerWheel.com!`
-        : `🎯 Spin the wheel (${wheelTitle}) for instant random picks on RandomizerWheel.com!`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: wheelTitle,
-          text: shareText,
-          url: fullUrl,
-        });
-        return;
-      } catch (e) {
-        // Fallback to clipboard copy if user dismissed or unsupported
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(fullUrl);
-      setCopiedShare(true);
-      setTimeout(() => setCopiedShare(false), 2200);
-    } catch (err) {}
+  const handleShareWheel = () => {
+    setIsShareModalOpen(true);
   };
 
   return (
     <div className="flex flex-col items-center justify-center relative w-full py-1 sm:py-2">
+      {/* Share Modal Dialog */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        lang={lang}
+        title={config.title}
+        items={activeOptions.map((o) => o.label)}
+      />
+
       {/* Canvas Wrapper */}
       <div
         ref={containerRef}
@@ -431,17 +413,8 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
           title={t(lang, 'shareWheel')}
           className="w-full sm:w-auto px-4 sm:px-5 py-3.5 sm:py-4 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-amber-400 rounded-2xl text-sm font-bold border border-slate-700/80 hover:border-amber-500/40 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer"
         >
-          {copiedShare ? (
-            <>
-              <Check className="w-5 h-5 text-emerald-400 stroke-[2.5]" />
-              <span className="text-emerald-400 font-bold">{t(lang, 'copiedLink')}</span>
-            </>
-          ) : (
-            <>
-              <Share2 className="w-5 h-5 text-amber-400 stroke-[2.2]" />
-              <span className="inline">{t(lang, 'shareWheel')}</span>
-            </>
-          )}
+          <Share2 className="w-5 h-5 text-amber-400 stroke-[2.2]" />
+          <span className="inline">{t(lang, 'shareWheel')}</span>
         </button>
       </div>
 

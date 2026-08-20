@@ -3,6 +3,8 @@ import { WheelOption, Language } from '../types';
 import confetti from 'canvas-confetti';
 import { Trophy, Trash2, RotateCcw, Copy, Check, Share2 } from 'lucide-react';
 import { t } from '../utils/translations';
+import { ShareModal } from './ShareModal';
+import { copyTextToClipboard } from '../utils/clipboard';
 
 interface WinnerModalProps {
   winner: WheelOption | null;
@@ -24,7 +26,7 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
   options,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [shared, setShared] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   useEffect(() => {
     if (winner) {
@@ -42,42 +44,16 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
 
   if (!winner) return null;
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(winner.label);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    const success = await copyTextToClipboard(winner.label);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
-  const handleShareResult = async () => {
-    const shareObj = {
-      title: wheelTitle || '',
-      items: (options || []).map((o) => o.label),
-    };
-    const query = '?wheel=' + encodeURIComponent(JSON.stringify(shareObj));
-    const fullUrl = `${window.location.origin}/${query}`;
-    const winnerName = winner.label;
-    const title = wheelTitle || (lang === 'ar' ? 'عجلة القرعة العشوائية' : 'Randomizer Wheel');
-    const text =
-      lang === 'ar'
-        ? `🏆 الفائز في قرعة (${title}) هو: "${winnerName}"! 🎉 جرب حظك وأدر العجلة الآن:`
-        : `🏆 Winner of (${title}): "${winnerName}"! 🎉 Spin the wheel and try your luck:`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title,
-          text,
-          url: fullUrl,
-        });
-        return;
-      } catch (e) {}
-    }
-
-    try {
-      await navigator.clipboard.writeText(`${text} ${fullUrl}`);
-      setShared(true);
-      setTimeout(() => setShared(false), 2200);
-    } catch (e) {}
+  const handleShareResult = () => {
+    setIsShareModalOpen(true);
   };
 
   const handleRemove = () => {
@@ -86,91 +62,93 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
-      <div className="bg-slate-900 border-2 border-amber-500/80 rounded-3xl max-w-md w-[92vw] sm:w-full p-5 sm:p-6 text-center shadow-2xl shadow-amber-500/20 relative space-y-4 sm:space-y-5 animate-scaleUp">
-        {/* Glow effect */}
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-amber-500/30 rounded-full blur-2xl pointer-events-none" />
+    <>
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        lang={lang}
+        title={wheelTitle}
+        items={(options || []).map((o) => o.label)}
+        winnerName={winner.label}
+      />
 
-        {/* Trophy Icon Badge */}
-        <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-tr from-amber-500 to-yellow-300 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/40 border-4 border-slate-900">
-          <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-slate-950 fill-slate-950 animate-bounce" />
-        </div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
+        <div className="bg-slate-900 border-2 border-amber-500/80 rounded-3xl max-w-md w-[92vw] sm:w-full p-5 sm:p-6 text-center shadow-2xl shadow-amber-500/20 relative space-y-4 sm:space-y-5 animate-scaleUp">
+          {/* Glow effect */}
+          <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-amber-500/30 rounded-full blur-2xl pointer-events-none" />
 
-        <div>
-          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-            {lang === 'ar' ? '🎉 الفائز في القرعة' : '🎉 Winner Selected'}
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-black text-white mt-2.5 px-2 break-words leading-tight">
-            {winner.label}
-          </h2>
-        </div>
+          {/* Trophy Icon Badge */}
+          <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-tr from-amber-500 to-yellow-300 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/40 border-4 border-slate-900">
+            <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-slate-950 fill-slate-950 animate-bounce" />
+          </div>
 
-        {/* Action Buttons */}
-        <div className="space-y-2.5 pt-1 sm:pt-2">
-          {/* Primary CTA: Spin Again */}
-          <button
-            id="btn-spin-again"
-            onClick={() => {
-              if (onSpinAgain) {
-                onSpinAgain();
-              } else {
-                onClose();
-              }
-            }}
-            className="w-full py-3 sm:py-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-bold rounded-2xl text-sm sm:text-base shadow-lg shadow-amber-500/25 transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-          >
-            <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
-            <span>{lang === 'ar' ? 'تدوير مرة أخرى' : 'Spin Again'}</span>
-          </button>
+          <div>
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+              {lang === 'ar' ? '🎉 الفائز في القرعة' : '🎉 Winner Selected'}
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black text-white mt-2.5 px-2 break-words leading-tight">
+              {winner.label}
+            </h2>
+          </div>
 
-          {/* Secondary: Share Result & Wheel */}
-          <button
-            id="btn-share-winner"
-            onClick={handleShareResult}
-            className="w-full py-2.5 sm:py-3 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 hover:border-amber-400/50 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-          >
-            {shared ? (
-              <>
-                <Check className="w-4 h-4 text-emerald-400 stroke-[2.5]" />
-                <span className="text-emerald-400">{t(lang, 'copiedLink')}</span>
-              </>
-            ) : (
-              <>
-                <Share2 className="w-4 h-4 text-amber-400 stroke-[2.2]" />
-                <span>{t(lang, 'shareResult')}</span>
-              </>
-            )}
-          </button>
-
-          {/* Action Row: Remove Winner & Copy Name */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Action Buttons */}
+          <div className="space-y-2.5 pt-1 sm:pt-2">
+            {/* Primary CTA: Spin Again */}
             <button
-              onClick={handleRemove}
-              className="py-2.5 px-3 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+              id="btn-spin-again"
+              onClick={() => {
+                if (onSpinAgain) {
+                  onSpinAgain();
+                } else {
+                  onClose();
+                }
+              }}
+              className="w-full py-3 sm:py-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-bold rounded-2xl text-sm sm:text-base shadow-lg shadow-amber-500/25 transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
             >
-              <Trash2 className="w-4 h-4 shrink-0" />
-              <span className="truncate">{lang === 'ar' ? 'إزالة الفائز' : 'Remove Winner'}</span>
+              <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
+              <span>{lang === 'ar' ? 'تدوير مرة أخرى' : 'Spin Again'}</span>
             </button>
 
+            {/* Secondary: Share Result & Wheel */}
             <button
-              onClick={handleCopy}
-              className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+              id="btn-share-winner"
+              onClick={handleShareResult}
+              className="w-full py-2.5 sm:py-3 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 hover:border-amber-400/50 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
             >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span className="truncate">{lang === 'ar' ? 'تم النسخ!' : 'Copied!'}</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{lang === 'ar' ? 'نسخ الاسم' : 'Copy Name'}</span>
-                </>
-              )}
+              <Share2 className="w-4 h-4 text-amber-400 stroke-[2.2]" />
+              <span>{t(lang, 'shareResult')}</span>
             </button>
+
+            {/* Action Row: Remove Winner & Copy Name */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleRemove}
+                className="py-2.5 px-3 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4 shrink-0" />
+                <span className="truncate">{lang === 'ar' ? 'إزالة الفائز' : 'Remove Winner'}</span>
+              </button>
+
+              <button
+                onClick={handleCopy}
+                className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="truncate">{lang === 'ar' ? 'تم النسخ!' : 'Copied!'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{lang === 'ar' ? 'نسخ الاسم' : 'Copy Name'}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
