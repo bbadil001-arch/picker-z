@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { WheelOption, WheelConfig, Language } from '../types';
 import { getContrastTextColor, getSliceColors } from '../utils/colorThemes';
 import { sound } from '../utils/sound';
-import { Play, Sparkles, Download } from 'lucide-react';
+import { Play, Sparkles, Share2, Check } from 'lucide-react';
 import { t } from '../utils/translations';
 
 interface SpinWheelProps {
@@ -344,55 +344,40 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
     }
   }, [spinTrigger]);
 
-  const handleDownloadImage = () => {
-    const sourceCanvas = canvasRef.current;
-    if (!sourceCanvas) return;
+  const [copiedShare, setCopiedShare] = useState(false);
 
-    const exportCanvas = document.createElement('canvas');
-    const size = 1000;
-    exportCanvas.width = size;
-    exportCanvas.height = size + 120;
+  // Share current wheel state & result
+  const handleShareWheel = async () => {
+    const shareObj = {
+      title: config.title || '',
+      items: activeOptions.map((o) => o.label),
+    };
+    const query = '?wheel=' + encodeURIComponent(JSON.stringify(shareObj));
+    const fullUrl = `${window.location.origin}/${query}`;
+    const wheelTitle = config.title || (lang === 'ar' ? 'عجلة القرعة والخيارات العشوائية' : 'Randomizer Wheel');
+    const shareText =
+      lang === 'ar'
+        ? `🎯 أدر عجلة القرعة (${wheelTitle}) واكتشف النتيجة فوراً على RandomizerWheel.com!`
+        : `🎯 Spin the wheel (${wheelTitle}) for instant random picks on RandomizerWheel.com!`;
 
-    const ctx = exportCanvas.getContext('2d');
-    if (!ctx) return;
-
-    // Dark background
-    ctx.fillStyle = config.customBgColor || '#0f172a';
-    ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-
-    // Subtle glow
-    const glow = ctx.createRadialGradient(size / 2, size / 2 + 30, 100, size / 2, size / 2 + 30, size / 2 + 50);
-    glow.addColorStop(0, 'rgba(245, 158, 11, 0.15)');
-    glow.addColorStop(1, 'rgba(15, 23, 42, 0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-
-    // Optional Title Header
-    if (config.title) {
-      ctx.fillStyle = '#f59e0b';
-      ctx.font = 'bold 36px system-ui, -apple-system, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(config.title, size / 2, 60);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: wheelTitle,
+          text: shareText,
+          url: fullUrl,
+        });
+        return;
+      } catch (e) {
+        // Fallback to clipboard copy if user dismissed or unsupported
+      }
     }
 
-    // Draw Source Canvas Wheel Centered
-    const wheelMargin = 70;
-    const wheelSize = size - wheelMargin * 2;
-    const wheelY = config.title ? 95 : 60;
-    ctx.drawImage(sourceCanvas, wheelMargin, wheelY, wheelSize, wheelSize);
-
-    // Watermark
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = 'bold 24px system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('RandomizerWheel.com', size / 2, exportCanvas.height - 35);
-
-    // Download PNG
-    const link = document.createElement('a');
-    const cleanTitle = config.title ? config.title.replace(/[^a-zA-Z0-9_\u0600-\u06FF-]/g, '_') : 'wheel';
-    link.download = `${cleanTitle}.png`;
-    link.href = exportCanvas.toDataURL('image/png');
-    link.click();
+    try {
+      await navigator.clipboard.writeText(fullUrl);
+      setCopiedShare(true);
+      setTimeout(() => setCopiedShare(false), 2200);
+    } catch (err) {}
   };
 
   return (
@@ -438,15 +423,25 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
           )}
         </button>
 
-        {/* Download Image Button */}
+        {/* Share Wheel & Result Button */}
         <button
-          onClick={handleDownloadImage}
+          id="btn-share-wheel"
+          onClick={handleShareWheel}
           disabled={isSpinning || activeOptions.length === 0}
-          title={t(lang, 'downloadImage')}
-          className="w-full sm:w-auto px-4 py-3.5 sm:py-4 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-amber-400 rounded-2xl text-sm font-bold border border-slate-700/80 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 disabled:opacity-50 shrink-0"
+          title={t(lang, 'shareWheel')}
+          className="w-full sm:w-auto px-4 sm:px-5 py-3.5 sm:py-4 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-amber-400 rounded-2xl text-sm font-bold border border-slate-700/80 hover:border-amber-500/40 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer"
         >
-          <Download className="w-5 h-5 text-amber-400" />
-          <span className="inline">{t(lang, 'downloadImage')}</span>
+          {copiedShare ? (
+            <>
+              <Check className="w-5 h-5 text-emerald-400 stroke-[2.5]" />
+              <span className="text-emerald-400 font-bold">{t(lang, 'copiedLink')}</span>
+            </>
+          ) : (
+            <>
+              <Share2 className="w-5 h-5 text-amber-400 stroke-[2.2]" />
+              <span className="inline">{t(lang, 'shareWheel')}</span>
+            </>
+          )}
         </button>
       </div>
 

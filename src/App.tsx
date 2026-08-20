@@ -469,6 +469,8 @@ export default function App() {
         onSpinAgain={handleSpinAgain}
         onRemoveWinner={handleRemoveWinner}
         lang={lang}
+        wheelTitle={config.title}
+        options={options}
       />
 
       {/* Contact & Request Help Modal */}

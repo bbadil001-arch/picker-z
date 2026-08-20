@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { WheelOption, Language } from '../types';
 import confetti from 'canvas-confetti';
-import { Trophy, Trash2, RotateCcw, Copy, Check } from 'lucide-react';
+import { Trophy, Trash2, RotateCcw, Copy, Check, Share2 } from 'lucide-react';
 import { t } from '../utils/translations';
 
 interface WinnerModalProps {
@@ -10,6 +10,8 @@ interface WinnerModalProps {
   onSpinAgain?: () => void;
   onRemoveWinner: (id: string) => void;
   lang: Language;
+  wheelTitle?: string;
+  options?: WheelOption[];
 }
 
 export const WinnerModal: React.FC<WinnerModalProps> = ({
@@ -18,8 +20,11 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
   onSpinAgain,
   onRemoveWinner,
   lang,
+  wheelTitle,
+  options,
 }) => {
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
 
   useEffect(() => {
     if (winner) {
@@ -41,6 +46,38 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
     navigator.clipboard.writeText(winner.label);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShareResult = async () => {
+    const shareObj = {
+      title: wheelTitle || '',
+      items: (options || []).map((o) => o.label),
+    };
+    const query = '?wheel=' + encodeURIComponent(JSON.stringify(shareObj));
+    const fullUrl = `${window.location.origin}/${query}`;
+    const winnerName = winner.label;
+    const title = wheelTitle || (lang === 'ar' ? 'عجلة القرعة العشوائية' : 'Randomizer Wheel');
+    const text =
+      lang === 'ar'
+        ? `🏆 الفائز في قرعة (${title}) هو: "${winnerName}"! 🎉 جرب حظك وأدر العجلة الآن:`
+        : `🏆 Winner of (${title}): "${winnerName}"! 🎉 Spin the wheel and try your luck:`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title,
+          text,
+          url: fullUrl,
+        });
+        return;
+      } catch (e) {}
+    }
+
+    try {
+      await navigator.clipboard.writeText(`${text} ${fullUrl}`);
+      setShared(true);
+      setTimeout(() => setShared(false), 2200);
+    } catch (e) {}
   };
 
   const handleRemove = () => {
@@ -69,8 +106,10 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="space-y-2 pt-1 sm:pt-2">
+        <div className="space-y-2.5 pt-1 sm:pt-2">
+          {/* Primary CTA: Spin Again */}
           <button
+            id="btn-spin-again"
             onClick={() => {
               if (onSpinAgain) {
                 onSpinAgain();
@@ -78,16 +117,36 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
                 onClose();
               }
             }}
-            className="w-full py-3 sm:py-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-bold rounded-2xl text-sm sm:text-base shadow-lg shadow-amber-500/25 transition flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3 sm:py-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-bold rounded-2xl text-sm sm:text-base shadow-lg shadow-amber-500/25 transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
           >
             <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             <span>{lang === 'ar' ? 'تدوير مرة أخرى' : 'Spin Again'}</span>
           </button>
 
+          {/* Secondary: Share Result & Wheel */}
+          <button
+            id="btn-share-winner"
+            onClick={handleShareResult}
+            className="w-full py-2.5 sm:py-3 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 hover:border-amber-400/50 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+          >
+            {shared ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-400 stroke-[2.5]" />
+                <span className="text-emerald-400">{t(lang, 'copiedLink')}</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4 text-amber-400 stroke-[2.2]" />
+                <span>{t(lang, 'shareResult')}</span>
+              </>
+            )}
+          </button>
+
+          {/* Action Row: Remove Winner & Copy Name */}
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={handleRemove}
-              className="py-2.5 px-3 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+              className="py-2.5 px-3 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Trash2 className="w-4 h-4 shrink-0" />
               <span className="truncate">{lang === 'ar' ? 'إزالة الفائز' : 'Remove Winner'}</span>
@@ -95,7 +154,7 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
 
             <button
               onClick={handleCopy}
-              className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+              className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
             >
               {copied ? (
                 <>
