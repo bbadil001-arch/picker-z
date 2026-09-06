@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Language } from '../types';
 import { X, Share2, Copy, Check, ExternalLink, MessageCircle, Send } from 'lucide-react';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { getSafeOrigin } from '../utils/safeStorage';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -24,6 +25,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Safely get base URL
+  const getBaseUrl = (): string => {
+    return getSafeOrigin();
+  };
+
   // Build the share URL with the current wheel items & title
   const cleanTitle = title || (lang === 'ar' ? 'عجلة القرعة العشوائية' : 'Randomizer Wheel');
   const shareDataObj = {
@@ -31,7 +37,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     items: items,
   };
   const query = '?wheel=' + encodeURIComponent(JSON.stringify(shareDataObj));
-  const fullUrl = `${window.location.origin}/${query}`;
+  const fullUrl = `${getBaseUrl()}/${query}`;
 
   const shareMessage = winnerName
     ? lang === 'ar'
@@ -50,14 +56,16 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   };
 
   const handleNativeShare = async () => {
-    if (navigator.share) {
-      try {
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
         await navigator.share({
           title: cleanTitle,
           text: shareMessage,
           url: fullUrl,
         });
-      } catch (e) {}
+      }
+    } catch (e) {
+      // Insecure context or user denied
     }
   };
 

@@ -69,7 +69,13 @@ export const ContactModal: React.FC<ContactModalProps> = ({
       subject || `[RandomizerWheel Support] ${typeLabels[requestType] || 'Help Request'}`
     )}&body=${encodeURIComponent(fullBody)}`;
 
-    window.open(mailtoUrl, '_blank');
+    try {
+      window.location.href = mailtoUrl;
+    } catch (e) {
+      try {
+        window.open(mailtoUrl, '_blank');
+      } catch (err) {}
+    }
   };
 
   const handleResetForm = () => {

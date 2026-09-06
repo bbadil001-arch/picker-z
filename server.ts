@@ -61,6 +61,9 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Trust reverse proxy for accurate client IPs and protocols (Cloud Run / Nginx)
+  app.set("trust proxy", 1);
+
   // Security: Remove Express identity header
   app.disable("x-powered-by");
 
@@ -72,22 +75,16 @@ async function startServer() {
     // Prevent MIME-sniffing
     res.setHeader("X-Content-Type-Options", "nosniff");
 
-    // Clickjacking protection (ALLOW-FROM / SAMEORIGIN)
-    res.setHeader("X-Frame-Options", "SAMEORIGIN");
-
     // XSS Protection for legacy browsers
     res.setHeader("X-XSS-Protection", "1; mode=block");
 
     // Strict Referrer Policy
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 
-    // Restrict unauthorized browser sensor/hardware APIs
-    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
-
-    // Content Security Policy (allows Google Fonts, inline Tailwind/Vite runtime, local API)
+    // Content Security Policy (allows iframe embedding in AI Studio preview, Google Fonts, and local API)
     res.setHeader(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; media-src 'self' data: blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;"
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; media-src 'self' data: blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; frame-ancestors *;"
     );
 
     next();
@@ -102,9 +99,9 @@ async function startServer() {
   app.get("/sitemap.xml", (req, res) => {
     try {
       const today = new Date().toISOString().split("T")[0];
-      const host = req.get("host") || "randomizerwheel.com";
-      const protocol = req.protocol || "https";
-      const baseUrl = `${protocol}://${host}`;
+      const rawHost = req.get("host") || "randomizerwheel.com";
+      const isLocal = rawHost.includes("localhost") || rawHost.includes("127.0.0.1") || rawHost.includes("ais-dev") || rawHost.includes("ais-pre");
+      const baseUrl = isLocal ? `${req.protocol}://${rawHost}` : "https://randomizerwheel.com";
       const languages = ["en", "ar", "fr", "es", "zh", "th", "tl", "ko", "ja"];
 
       const articleRoutes = (ARTICLES || []).map((art) => ({
@@ -116,6 +113,10 @@ async function startServer() {
 
       const routes = [
         { path: "", priority: "1.0", changefreq: "daily", lastmod: today },
+        { path: "tiktok-comment-picker", priority: "0.95", changefreq: "daily", lastmod: today },
+        { path: "instagram-comment-picker", priority: "0.95", changefreq: "daily", lastmod: today },
+        { path: "youtube-comment-picker", priority: "0.95", changefreq: "daily", lastmod: today },
+        { path: "facebook-comment-picker", priority: "0.95", changefreq: "daily", lastmod: today },
         { path: "yesno", priority: "0.9", changefreq: "daily", lastmod: today },
         { path: "numbers", priority: "0.9", changefreq: "daily", lastmod: today },
         { path: "names", priority: "0.9", changefreq: "daily", lastmod: today },

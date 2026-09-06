@@ -2,7 +2,9 @@ import React from 'react';
 import { LegalDocType, LEGAL_DOCS } from '../data/legalContent';
 import { Language } from '../types';
 import { t } from '../utils/translations';
-import { Shield, FileText, Info, Cookie, AlertTriangle, ArrowLeft, Printer, Share2, Mail } from 'lucide-react';
+import { copyTextToClipboard } from '../utils/clipboard';
+import { getSafeOrigin } from '../utils/safeStorage';
+import { Shield, FileText, Info, Cookie, AlertTriangle, ArrowLeft, Printer, Share2, Mail, Check } from 'lucide-react';
 
 interface FullLegalPageProps {
   lang: Language;
@@ -19,6 +21,7 @@ export const FullLegalPage: React.FC<FullLegalPageProps> = ({
   onBackToHome,
   onOpenContact,
 }) => {
+  const [copied, setCopied] = React.useState(false);
   const tabs: { id: LegalDocType; labelKey: string; icon: any }[] = [
     { id: 'privacy', labelKey: 'privacyPolicy', icon: Shield },
     { id: 'terms', labelKey: 'termsOfService', icon: FileText },
@@ -30,12 +33,19 @@ export const FullLegalPage: React.FC<FullLegalPageProps> = ({
   const doc = LEGAL_DOCS[currentTab]?.[lang] || LEGAL_DOCS[currentTab]?.en;
 
   const handlePrint = () => {
-    window.print();
+    try {
+      window.print();
+    } catch (e) {}
   };
 
-  const handleShare = () => {
-    const url = `${window.location.origin}/${currentTab}`;
-    navigator.clipboard.writeText(url);
+  const handleShare = async () => {
+    const origin = getSafeOrigin();
+    const url = `${origin}/${currentTab}`;
+    const success = await copyTextToClipboard(url);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   return (
@@ -53,11 +63,15 @@ export const FullLegalPage: React.FC<FullLegalPageProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={handleShare}
-            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition-colors text-xs flex items-center gap-1.5"
+            className={`p-2 rounded-xl bg-slate-900 border transition-colors text-xs flex items-center gap-1.5 cursor-pointer ${
+              copied
+                ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10'
+                : 'border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+            }`}
             title="Share document link"
           >
-            <Share2 className="w-4 h-4" />
-            <span className="hidden sm:inline">{t(lang, 'share')}</span>
+            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+            <span className="hidden sm:inline">{copied ? (lang === 'ar' ? 'تم النسخ!' : 'Copied!') : t(lang, 'share')}</span>
           </button>
           <button
             onClick={handlePrint}

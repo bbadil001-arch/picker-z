@@ -19,6 +19,10 @@ const articleRoutes = (ARTICLES || []).map((art) => ({
 
 const routes = [
   { path: '', priority: '1.0', changefreq: 'daily', lastmod: today },
+  { path: 'tiktok-comment-picker', priority: '0.95', changefreq: 'daily', lastmod: today },
+  { path: 'instagram-comment-picker', priority: '0.95', changefreq: 'daily', lastmod: today },
+  { path: 'youtube-comment-picker', priority: '0.95', changefreq: 'daily', lastmod: today },
+  { path: 'facebook-comment-picker', priority: '0.95', changefreq: 'daily', lastmod: today },
   { path: 'yesno', priority: '0.9', changefreq: 'daily', lastmod: today },
   { path: 'numbers', priority: '0.9', changefreq: 'daily', lastmod: today },
   { path: 'names', priority: '0.9', changefreq: 'daily', lastmod: today },

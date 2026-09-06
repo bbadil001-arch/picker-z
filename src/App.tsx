@@ -4,6 +4,7 @@ import { SpinWheel } from './components/SpinWheel';
 import { OptionManager } from './components/OptionManager';
 import { WheelCustomizer } from './components/WheelCustomizer';
 import { WinnerModal } from './components/WinnerModal';
+import { ShareModal } from './components/ShareModal';
 import { SpinHistory } from './components/SpinHistory';
 import { SEOContentSection } from './components/SEOContentSection';
 import { Header, ActivePage } from './components/Header';
@@ -14,10 +15,12 @@ import { BlogListPage } from './components/BlogListPage';
 import { ArticleDetailPage } from './components/ArticleDetailPage';
 import { FullLegalPage } from './components/FullLegalPage';
 import { ContactPage } from './components/ContactPage';
+import { SocialCommentPickerPage } from './components/SocialCommentPickerPage';
 import { LegalDocType } from './data/legalContent';
 import { ARTICLES } from './data/articles';
 import { LANGUAGES, t } from './utils/translations';
 import { sanitizeOptionLabel, sanitizeHtml, safeDecodeURI } from './utils/security';
+import { safeStorage } from './utils/safeStorage';
 import { Sparkles, Dices, HelpCircle, CheckCircle2, UserCheck, Disc, Mail, Shield, BookOpen } from 'lucide-react';
 
 const DEFAULT_OPTIONS: WheelOption[] = [
@@ -50,14 +53,16 @@ export default function App() {
   const [legalTab, setLegalTab] = useState<LegalDocType>('privacy');
   const [isContactOpen, setIsContactOpen] = useState(false);
   const [isLegalOpen, setIsLegalOpen] = useState(false);
+  const [isHeaderShareOpen, setIsHeaderShareOpen] = useState(false);
 
   const [lang, setLang] = useState<Language>(() => {
     try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlLang = urlParams.get('lang') as Language;
-      if (urlLang && LANGUAGES.some((l) => l.code === urlLang)) return urlLang;
-
-      const saved = localStorage.getItem('rw_lang') as Language;
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlLang = urlParams.get('lang') as Language;
+        if (urlLang && LANGUAGES.some((l) => l.code === urlLang)) return urlLang;
+      }
+      const saved = safeStorage.getItem('rw_lang') as Language;
       if (saved && LANGUAGES.some((l) => l.code === saved)) return saved;
     } catch (e) {}
     return 'en';
@@ -65,7 +70,7 @@ export default function App() {
 
   const [options, setOptions] = useState<WheelOption[]>(() => {
     try {
-      const saved = localStorage.getItem('rw_options');
+      const saved = safeStorage.getItem('rw_options');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -81,7 +86,7 @@ export default function App() {
 
   const [config, setConfig] = useState<WheelConfig>(() => {
     try {
-      const saved = localStorage.getItem('rw_config');
+      const saved = safeStorage.getItem('rw_config');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return DEFAULT_CONFIG;
@@ -89,7 +94,7 @@ export default function App() {
 
   const [history, setHistory] = useState<SpinHistoryItem[]>(() => {
     try {
-      const saved = localStorage.getItem('rw_history');
+      const saved = safeStorage.getItem('rw_history');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return [];
@@ -103,100 +108,125 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = lang;
-    try {
-      localStorage.setItem('rw_lang', lang);
-    } catch (e) {}
+    safeStorage.setItem('rw_lang', lang);
   }, [lang]);
 
   // Clean Path Router (No # hash in URLs, with automatic hash migration)
   const parseCurrentRoute = useCallback(() => {
-    const rawHash = window.location.hash.trim();
-    const urlParams = new URLSearchParams(window.location.search);
-    const queryWheel = urlParams.get('wheel');
+    try {
+      const rawHash = window.location.hash ? window.location.hash.trim() : '';
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryWheel = urlParams.get('wheel');
 
-    // 1. Check if shared wheel data is present in search params or legacy hash
-    let sharedJson: string | null = queryWheel;
-    if (!sharedJson && rawHash.startsWith('#wheel=')) {
-      sharedJson = rawHash.replace('#wheel=', '');
-    }
-
-    if (sharedJson) {
-      try {
-        const jsonStr = safeDecodeURI(sharedJson);
-        const parsed = JSON.parse(jsonStr);
-        if (parsed.items && Array.isArray(parsed.items)) {
-          const loadedOptions: WheelOption[] = parsed.items.map((item: string, idx: number) => ({
-            id: 'shared_' + idx + '_' + Date.now(),
-            label: sanitizeOptionLabel(String(item)),
-            hidden: false,
-          }));
-          setOptions(loadedOptions);
+      // Sync language from URL if present
+      const urlLang = urlParams.get('lang') as Language;
+      let currentEffectiveLang = lang;
+      if (urlLang && LANGUAGES.some((l) => l.code === urlLang)) {
+        currentEffectiveLang = urlLang;
+        if (urlLang !== lang) {
+          setLang(urlLang);
         }
-        if (parsed.title) {
-          setConfig((prev) => ({ ...prev, title: sanitizeHtml(String(parsed.title)) }));
-        }
-        setActivePage('wheel');
-        // Clean URL to base without long query
-        window.history.replaceState(null, '', '/');
-        return;
-      } catch (e) {}
-    }
-
-    // 2. Backward compatibility: If URL has legacy #/route or #route, convert cleanly to clean pathname
-    if (rawHash && rawHash !== '#' && rawHash !== '#/') {
-      const legacyPath = rawHash.replace(/^#\/?/, '').trim();
-      if (legacyPath) {
-        const targetCleanUrl = `/${legacyPath}`;
-        window.history.replaceState(null, '', targetCleanUrl);
       }
-    }
 
-    // 3. Parse clean pathname
-    const pathname = window.location.pathname.replace(/^\/+|\/+$/g, '');
+      // 1. Check if shared wheel data is present in search params or legacy hash
+      let sharedJson: string | null = queryWheel;
+      if (!sharedJson && rawHash.startsWith('#wheel=')) {
+        sharedJson = rawHash.replace('#wheel=', '');
+      }
 
-    if (!pathname || pathname === 'wheel') {
-      setActivePage('wheel');
-    } else if (pathname === 'yesno') {
-      setActivePage('yesno');
-      const yesnoItems = lang === 'ar' ? ['نعم', 'لا', 'ربما', 'مرة أخرى'] : ['YES', 'NO', 'MAYBE', 'SPIN AGAIN'];
-      setOptions(
-        yesnoItems.map((lbl, idx) => ({
-          id: 'yn_' + idx,
-          label: lbl,
-          hidden: false,
-        }))
-      );
-      setConfig((prev) => ({
-        ...prev,
-        title: t(lang, 'yesNoTitle'),
-      }));
-    } else if (pathname === 'numbers') {
-      setActivePage('numbers');
-    } else if (pathname === 'names') {
-      setActivePage('names');
-      setConfig((prev) => ({
-        ...prev,
-        title: t(lang, 'namesTitle'),
-      }));
-    } else if (pathname === 'faq') {
-      setActivePage('wheel');
-      setTimeout(() => {
-        const el = document.getElementById('faq-section');
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    } else if (pathname === 'articles') {
-      setActivePage('articles');
-    } else if (pathname.startsWith('articles/')) {
-      const slug = sanitizeHtml(pathname.replace('articles/', ''));
-      setCurrentArticleSlug(slug);
-      setActivePage('article-detail');
-    } else if (['privacy', 'terms', 'about', 'cookies', 'disclaimer'].includes(pathname)) {
-      setLegalTab(pathname as LegalDocType);
-      setActivePage('legal');
-    } else if (pathname === 'contact') {
-      setActivePage('contact');
-    } else {
-      // Fallback
+      if (sharedJson) {
+        try {
+          const jsonStr = safeDecodeURI(sharedJson);
+          const parsed = JSON.parse(jsonStr);
+          if (parsed.items && Array.isArray(parsed.items)) {
+            const loadedOptions: WheelOption[] = parsed.items.map((item: string, idx: number) => ({
+              id: 'shared_' + idx + '_' + Date.now(),
+              label: sanitizeOptionLabel(String(item)),
+              hidden: false,
+            }));
+            setOptions(loadedOptions);
+          }
+          if (parsed.title) {
+            setConfig((prev) => ({ ...prev, title: sanitizeHtml(String(parsed.title)) }));
+          }
+          setActivePage('wheel');
+          // Clean URL to base without long query
+          try {
+            window.history.replaceState(null, '', '/');
+          } catch (e) {}
+          return;
+        } catch (e) {}
+      }
+
+      // 2. Backward compatibility: If URL has legacy #/route or #route, convert cleanly to clean pathname
+      if (rawHash && rawHash !== '#' && rawHash !== '#/') {
+        const legacyPath = rawHash.replace(/^#\/?/, '').trim();
+        if (legacyPath) {
+          const targetCleanUrl = `/${legacyPath}`;
+          try {
+            window.history.replaceState(null, '', targetCleanUrl);
+          } catch (e) {}
+        }
+      }
+
+      // 3. Parse clean pathname (strip leading and trailing slashes)
+      const pathname = window.location.pathname ? window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase() : '';
+
+      if (!pathname || pathname === 'wheel') {
+        setActivePage('wheel');
+      } else if (pathname === 'yesno') {
+        setActivePage('yesno');
+        const yesnoItems = currentEffectiveLang === 'ar' ? ['نعم', 'لا', 'ربما', 'مرة أخرى'] : ['YES', 'NO', 'MAYBE', 'SPIN AGAIN'];
+        setOptions(
+          yesnoItems.map((lbl, idx) => ({
+            id: 'yn_' + idx,
+            label: lbl,
+            hidden: false,
+          }))
+        );
+        setConfig((prev) => ({
+          ...prev,
+          title: t(currentEffectiveLang, 'yesNoTitle'),
+        }));
+      } else if (pathname === 'numbers') {
+        setActivePage('numbers');
+      } else if (pathname === 'names') {
+        setActivePage('names');
+        setConfig((prev) => ({
+          ...prev,
+          title: t(currentEffectiveLang, 'namesTitle'),
+        }));
+      } else if (pathname === 'faq') {
+        setActivePage('wheel');
+        setTimeout(() => {
+          const el = document.getElementById('faq-section');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      } else if (pathname === 'articles') {
+        setActivePage('articles');
+      } else if (pathname.startsWith('articles/')) {
+        const rawSlug = pathname.replace(/^articles\//, '');
+        const slug = sanitizeHtml(decodeURIComponent(rawSlug)).replace(/\/+$/, '');
+        setCurrentArticleSlug(slug);
+        setActivePage('article-detail');
+      } else if (['privacy', 'terms', 'about', 'cookies', 'disclaimer'].includes(pathname)) {
+        setLegalTab(pathname as LegalDocType);
+        setActivePage('legal');
+      } else if (pathname === 'contact') {
+        setActivePage('contact');
+      } else if (pathname === 'tiktok-comment-picker') {
+        setActivePage('tiktok-comment-picker');
+      } else if (pathname === 'instagram-comment-picker') {
+        setActivePage('instagram-comment-picker');
+      } else if (pathname === 'youtube-comment-picker') {
+        setActivePage('youtube-comment-picker');
+      } else if (pathname === 'facebook-comment-picker') {
+        setActivePage('facebook-comment-picker');
+      } else {
+        // Fallback
+        setActivePage('wheel');
+      }
+    } catch (err) {
       setActivePage('wheel');
     }
   }, [lang]);
@@ -214,14 +244,20 @@ export default function App() {
   // Clean Navigation Handler
   const navigateTo = (path: string, options?: { replace?: boolean; scroll?: boolean }) => {
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    if (options?.replace) {
-      window.history.replaceState(null, '', cleanPath);
-    } else {
-      window.history.pushState(null, '', cleanPath);
+    try {
+      if (options?.replace) {
+        window.history.replaceState(null, '', cleanPath);
+      } else {
+        window.history.pushState(null, '', cleanPath);
+      }
+    } catch (e) {
+      // In sandboxed iframes, pushState/replaceState may be restricted
     }
     parseCurrentRoute();
     if (options?.scroll !== false) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      try {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (e) {}
     }
   };
 
@@ -242,6 +278,13 @@ export default function App() {
       navigateTo('/articles');
     } else if (page === 'contact') {
       navigateTo('/contact');
+    } else if (
+      page === 'tiktok-comment-picker' ||
+      page === 'instagram-comment-picker' ||
+      page === 'youtube-comment-picker' ||
+      page === 'facebook-comment-picker'
+    ) {
+      navigateTo(`/${page}`);
     } else if (page === 'faq') {
       navigateTo('/faq', { scroll: false });
       const el = document.getElementById('faq-section');
@@ -261,23 +304,17 @@ export default function App() {
     navigateTo(`/articles/${slug}`);
   };
 
-  // Save state to localStorage safely
+  // Save state to safe storage
   useEffect(() => {
-    try {
-      localStorage.setItem('rw_options', JSON.stringify(options));
-    } catch (e) {}
+    safeStorage.setItem('rw_options', JSON.stringify(options));
   }, [options]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('rw_config', JSON.stringify(config));
-    } catch (e) {}
+    safeStorage.setItem('rw_config', JSON.stringify(config));
   }, [config]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('rw_history', JSON.stringify(history));
-    } catch (e) {}
+    safeStorage.setItem('rw_history', JSON.stringify(history));
   }, [history]);
 
   // Handle spin finish
@@ -329,15 +366,9 @@ export default function App() {
     handlePageSelect('wheel');
   };
 
-  // Generate clean share URL without #
+  // Handle sharing from header
   const handleShare = () => {
-    const shareObj = {
-      title: config.title,
-      items: options.map((o) => o.label),
-    };
-    const query = '?wheel=' + encodeURIComponent(JSON.stringify(shareObj));
-    const fullUrl = window.location.origin + '/' + query;
-    navigator.clipboard.writeText(fullUrl);
+    setIsHeaderShareOpen(true);
   };
 
   return (
@@ -402,6 +433,37 @@ export default function App() {
             lang={lang}
             onBackToHome={() => handlePageSelect('wheel')}
             onNavigateToFaq={() => handlePageSelect('faq')}
+          />
+        )}
+
+        {/* VIEW 6: SOCIAL MEDIA COMMENT PICKER SUITE */}
+        {(activePage === 'tiktok-comment-picker' ||
+          activePage === 'instagram-comment-picker' ||
+          activePage === 'youtube-comment-picker' ||
+          activePage === 'facebook-comment-picker') && (
+          <SocialCommentPickerPage
+            platformId={
+              activePage === 'tiktok-comment-picker'
+                ? 'tiktok'
+                : activePage === 'instagram-comment-picker'
+                ? 'instagram'
+                : activePage === 'youtube-comment-picker'
+                ? 'youtube'
+                : 'facebook'
+            }
+            lang={lang}
+            onNavigateToRoute={(route) => navigateTo(route)}
+            options={options}
+            setOptions={setOptions}
+            config={config}
+            setConfig={setConfig}
+            isSpinning={isSpinning}
+            setIsSpinning={setIsSpinning}
+            onSpinEnd={handleSpinEnd}
+            spinTrigger={spinTrigger}
+            setSpinTrigger={setSpinTrigger}
+            history={history}
+            setHistory={setHistory}
           />
         )}
 
@@ -473,6 +535,15 @@ export default function App() {
         options={options}
       />
 
+      {/* Header Share Modal */}
+      <ShareModal
+        isOpen={isHeaderShareOpen}
+        onClose={() => setIsHeaderShareOpen(false)}
+        lang={lang}
+        title={config.title}
+        items={options.map((o) => o.label)}
+      />
+
       {/* Contact & Request Help Modal */}
       <ContactModal
         isOpen={isContactOpen}
@@ -497,9 +568,9 @@ export default function App() {
       <footer className="w-full bg-slate-900/95 border-t border-slate-800 py-8 sm:py-10 mt-12 sm:mt-16 text-xs text-slate-400">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           {/* Top Row: Brand & Purpose */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 pb-6 border-b border-slate-800/80">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 pb-6 border-b border-slate-800/80">
             {/* Col 1: Brand & Bio */}
-            <div className="md:col-span-1 space-y-2.5">
+            <div className="lg:col-span-1 space-y-2.5">
               <a
                 href="/wheel"
                 onClick={(e) => {
@@ -508,8 +579,11 @@ export default function App() {
                 }}
                 className="flex items-center gap-2 group cursor-pointer"
               >
-                <div className="w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center text-slate-950 font-black group-hover:scale-105 transition-transform">
-                  <Disc className="w-4 h-4" />
+                <div className="w-7 h-7 rounded-xl bg-amber-400 flex items-center justify-center text-slate-950 font-black group-hover:scale-105 transition-transform shadow-md shadow-amber-500/20">
+                  <svg viewBox="0 0 24 24" className="w-4.5 h-4.5" fill="none">
+                    <circle cx="12" cy="12" r="6.8" stroke="#090d16" strokeWidth="2.8" strokeLinecap="round" />
+                    <circle cx="12" cy="12" r="2.2" fill="#090d16" />
+                  </svg>
                 </div>
                 <span className="text-base font-black text-slate-100 font-['Plus_Jakarta_Sans',sans-serif]">
                   Randomizer<span className="text-amber-400">Wheel</span>.com
@@ -583,7 +657,69 @@ export default function App() {
               </ul>
             </div>
 
-            {/* Col 3: SEO Articles & Guides */}
+            {/* Col 3: Social Media Comment Pickers */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse" />
+                <span>{lang === 'ar' ? 'قرعة السوشيال ميديا' : 'Comment Pickers'}</span>
+              </h4>
+              <ul className="space-y-1.5 text-xs">
+                <li>
+                  <a
+                    href="/tiktok-comment-picker"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageSelect('tiktok-comment-picker');
+                    }}
+                    className="hover:text-pink-400 transition flex items-center gap-2 text-left rtl:text-right"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#FE2C55]" />
+                    <span>TikTok Comment Picker</span>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/instagram-comment-picker"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageSelect('instagram-comment-picker');
+                    }}
+                    className="hover:text-pink-400 transition flex items-center gap-2 text-left rtl:text-right"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#E1306C]" />
+                    <span>Instagram Comment Picker</span>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/youtube-comment-picker"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageSelect('youtube-comment-picker');
+                    }}
+                    className="hover:text-red-400 transition flex items-center gap-2 text-left rtl:text-right"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#FF0000]" />
+                    <span>YouTube Comment Picker</span>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/facebook-comment-picker"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageSelect('facebook-comment-picker');
+                    }}
+                    className="hover:text-blue-400 transition flex items-center gap-2 text-left rtl:text-right"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#1877F2]" />
+                    <span>Facebook Comment Picker</span>
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Col 4: SEO Articles & Guides */}
             <div className="space-y-2">
               <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                 <BookOpen className="w-3.5 h-3.5 text-amber-400" />
@@ -610,7 +746,7 @@ export default function App() {
                         e.preventDefault();
                         handleSelectArticle(art.slug);
                       }}
-                      className="hover:text-amber-400 transition block text-left rtl:text-right truncate max-w-[220px]"
+                      className="hover:text-amber-400 transition block text-left rtl:text-right truncate max-w-[200px]"
                       title={art.title[lang] || art.title.en}
                     >
                       {art.title[lang] || art.title.en}
@@ -620,7 +756,7 @@ export default function App() {
               </ul>
             </div>
 
-            {/* Col 4: Legal & AdSense Policy Pages */}
+            {/* Col 5: Legal & AdSense Policy Pages */}
             <div className="space-y-2">
               <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                 <Shield className="w-3.5 h-3.5 text-amber-400" />
@@ -700,6 +836,56 @@ export default function App() {
                   </a>
                 </li>
               </ul>
+            </div>
+          </div>
+
+          {/* Low-Competition Keyword Links Row */}
+          <div className="py-3 border-b border-slate-800/80 text-[11px] text-slate-400 flex flex-wrap items-center justify-between gap-3">
+            <span className="font-bold text-slate-300">Popular Spin Tools:</span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <a
+                href="/wheel"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handlePageSelect('wheel');
+                }}
+                className="hover:text-amber-400 transition"
+              >
+                Wheel of Names with Pictures
+              </a>
+              <span>•</span>
+              <a
+                href="/yesno"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handlePageSelect('yesno');
+                }}
+                className="hover:text-emerald-400 transition"
+              >
+                Yes or No Wheel Spinner
+              </a>
+              <span>•</span>
+              <a
+                href="/names"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handlePageSelect('names');
+                }}
+                className="hover:text-cyan-400 transition"
+              >
+                Random Name Picker for Classroom
+              </a>
+              <span>•</span>
+              <a
+                href="/names"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handlePageSelect('names');
+                }}
+                className="hover:text-purple-400 transition"
+              >
+                Random Team Generator Wheel
+              </a>
             </div>
           </div>
 

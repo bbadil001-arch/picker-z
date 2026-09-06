@@ -87,6 +87,54 @@ export const COLOR_THEMES: ColorTheme[] = [
       '#CBD5E1', // Slate 300
     ],
   },
+  {
+    id: 'tiktok',
+    name: { ar: 'تيك توك نيون', en: 'TikTok Neon' },
+    colors: [
+      '#FE2C55', // TikTok Pink/Red
+      '#25F4EE', // TikTok Cyan
+      '#000000', // Black
+      '#111827', // Slate Black
+      '#E11D48', // Vibrant Rose
+      '#06B6D4', // Vibrant Cyan
+    ],
+  },
+  {
+    id: 'instagram',
+    name: { ar: 'انستقرام سانست', en: 'Instagram Sunset' },
+    colors: [
+      '#833AB4', // Purple
+      '#C13584', // Magenta
+      '#E1306C', // Rose Pink
+      '#FD1D1D', // Coral Red
+      '#F56040', // Orange
+      '#FFDC80', // Warm Amber
+    ],
+  },
+  {
+    id: 'youtube',
+    name: { ar: 'يوتيوب أحمر', en: 'YouTube Classic' },
+    colors: [
+      '#FF0000', // YouTube Red
+      '#282828', // YouTube Dark Gray
+      '#DC2626', // Crimson Red
+      '#0F0F0F', // Pitch Black
+      '#EF4444', // Bright Red
+      '#F87171', // Coral
+    ],
+  },
+  {
+    id: 'facebook',
+    name: { ar: 'فيسبوك رويال', en: 'Facebook Royal Blue' },
+    colors: [
+      '#1877F2', // Facebook Blue
+      '#0C54B7', // Deep Royal Blue
+      '#3B82F6', // Azure Blue
+      '#1E40AF', // Navy Blue
+      '#60A5FA', // Sky Blue
+      '#2563EB', // Vibrant Blue
+    ],
+  },
 ];
 
 export function getThemeById(themeId: string): ColorTheme {

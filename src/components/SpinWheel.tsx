@@ -234,34 +234,47 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
   // Canvas auto-resizing to handle all device widths
   useEffect(() => {
     const handleResize = () => {
-      const container = containerRef.current;
-      const canvas = canvasRef.current;
-      if (!container || !canvas) return;
+      try {
+        const container = containerRef.current;
+        const canvas = canvasRef.current;
+        if (!container || !canvas) return;
 
-      // Fit container nicely on mobile screens down to 260px
-      const availableWidth = container.clientWidth - 16;
-      const size = Math.max(240, Math.min(availableWidth, 500));
-      const dpr = window.devicePixelRatio || 1;
+        // Fit container nicely on mobile screens down to 260px
+        const availableWidth = container.clientWidth - 16;
+        const size = Math.max(240, Math.min(availableWidth, 500));
+        const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
 
-      canvas.width = Math.floor(size * dpr);
-      canvas.height = Math.floor(size * dpr);
-      canvas.style.width = `${size}px`;
-      canvas.style.height = `${size}px`;
+        canvas.width = Math.floor(size * dpr);
+        canvas.height = Math.floor(size * dpr);
+        canvas.style.width = `${size}px`;
+        canvas.style.height = `${size}px`;
 
-      drawWheel();
+        drawWheel();
+      } catch (e) {}
     };
 
     handleResize();
-    const observer = new ResizeObserver(handleResize);
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
+    let observer: ResizeObserver | null = null;
+    try {
+      if (typeof ResizeObserver !== 'undefined') {
+        observer = new ResizeObserver(handleResize);
+        if (containerRef.current) {
+          observer.observe(containerRef.current);
+        }
+      }
+    } catch (e) {}
 
-    window.addEventListener('resize', handleResize);
+    try {
+      window.addEventListener('resize', handleResize);
+    } catch (e) {}
 
     return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', handleResize);
+      try {
+        if (observer) observer.disconnect();
+      } catch (e) {}
+      try {
+        window.removeEventListener('resize', handleResize);
+      } catch (e) {}
     };
   }, [drawWheel]);
 

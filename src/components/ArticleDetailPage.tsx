@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Article, ARTICLES } from '../data/articles';
 import { Language } from '../types';
 import { t } from '../utils/translations';
+import { copyTextToClipboard } from '../utils/clipboard';
+import { getSafeOrigin } from '../utils/safeStorage';
 import {
   ArrowLeft,
   Calendar,
@@ -58,18 +60,20 @@ export const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
   };
 
   // Copy link
-  const handleCopyLink = () => {
-    const url = `${window.location.origin}/articles/${article.slug}`;
-    navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyLink = async () => {
+    const origin = getSafeOrigin();
+    const url = `${origin}/articles/${article.slug}`;
+    const success = await copyTextToClipboard(url);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   // Social share
   const handleShare = (platform: 'twitter' | 'facebook' | 'whatsapp' | 'telegram') => {
-    const url = encodeURIComponent(
-      `${window.location.origin}/articles/${article.slug}`
-    );
+    const origin = getSafeOrigin();
+    const url = encodeURIComponent(`${origin}/articles/${article.slug}`);
     const text = encodeURIComponent(title);
     let shareUrl = '';
 
@@ -88,7 +92,9 @@ export const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
         break;
     }
 
-    window.open(shareUrl, '_blank', 'noopener,noreferrer');
+    try {
+      window.open(shareUrl, '_blank', 'noopener,noreferrer');
+    } catch (e) {}
   };
 
   // Structured Data Schema for Google
@@ -131,15 +137,22 @@ export const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
       ],
     };
 
-    const script = document.createElement('script');
-    script.type = 'application/ld+json';
-    script.id = 'article-json-ld';
-    script.text = JSON.stringify(jsonLdData);
-    document.head.appendChild(script);
-
-    return () => {
+    try {
       const existing = document.getElementById('article-json-ld');
       if (existing) existing.remove();
+
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.id = 'article-json-ld';
+      script.text = JSON.stringify(jsonLdData);
+      document.head.appendChild(script);
+    } catch (e) {}
+
+    return () => {
+      try {
+        const existing = document.getElementById('article-json-ld');
+        if (existing) existing.remove();
+      } catch (e) {}
     };
   }, [article, title, description, lang, faqs]);
 
@@ -380,8 +393,11 @@ export const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
 
         {/* Interactive CTA Widget */}
         <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-amber-500/15 via-slate-900 to-amber-950/20 border border-amber-500/30 text-center space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-slate-950 mx-auto shadow-lg shadow-amber-500/30">
-            <Disc className="w-6 h-6 animate-spin-slow" />
+          <div className="w-12 h-12 rounded-2xl bg-amber-400 flex items-center justify-center text-slate-950 mx-auto shadow-lg shadow-amber-500/30">
+            <svg viewBox="0 0 24 24" className="w-7 h-7" fill="none">
+              <circle cx="12" cy="12" r="6.8" stroke="#090d16" strokeWidth="2.8" strokeLinecap="round" />
+              <circle cx="12" cy="12" r="2.2" fill="#090d16" />
+            </svg>
           </div>
 
           <div className="space-y-1 max-w-md mx-auto">

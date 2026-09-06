@@ -4,13 +4,13 @@
  */
 export async function copyTextToClipboard(text: string): Promise<boolean> {
   // 1. Try Modern Clipboard API
-  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-    try {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
       await navigator.clipboard.writeText(text);
       return true;
-    } catch (e) {
-      // Fall through to fallback
     }
+  } catch (e) {
+    // Fall through to fallback
   }
 
   // 2. Fallback: create temporary textarea

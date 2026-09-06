@@ -1,10 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Disc, Share2, Globe, Check, Maximize, Minimize, Menu, X, Sparkles, BookOpen, CheckCircle2, Dices, HelpCircle, UserCheck, Mail } from 'lucide-react';
+import { Disc, Share2, Globe, Check, Maximize, Minimize, Menu, X, Sparkles, BookOpen, CheckCircle2, Dices, HelpCircle, UserCheck, Mail, ChevronDown, MessageSquare } from 'lucide-react';
 import { Language } from '../types';
 import { LANGUAGES, t } from '../utils/translations';
 import { LegalDocType } from '../data/legalContent';
 
-export type ActivePage = 'wheel' | 'yesno' | 'numbers' | 'names' | 'articles' | 'article-detail' | 'legal' | 'contact' | 'faq';
+export type ActivePage =
+  | 'wheel'
+  | 'yesno'
+  | 'numbers'
+  | 'names'
+  | 'articles'
+  | 'article-detail'
+  | 'legal'
+  | 'contact'
+  | 'faq'
+  | 'tiktok-comment-picker'
+  | 'instagram-comment-picker'
+  | 'facebook-comment-picker'
+  | 'youtube-comment-picker';
 
 interface HeaderProps {
   lang: Language;
@@ -28,22 +41,51 @@ export const Header: React.FC<HeaderProps> = ({
   const [copiedShare, setCopiedShare] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [pickersDropdownOpen, setPickersDropdownOpen] = useState(false);
+
+  const socialPickerItems: { id: ActivePage; label: string; href: string; color: string }[] = [
+    { id: 'tiktok-comment-picker', label: 'TikTok Comment Picker', href: '/tiktok-comment-picker', color: '#FE2C55' },
+    { id: 'instagram-comment-picker', label: 'Instagram Comment Picker', href: '/instagram-comment-picker', color: '#E1306C' },
+    { id: 'youtube-comment-picker', label: 'YouTube Comment Picker', href: '/youtube-comment-picker', color: '#FF0000' },
+    { id: 'facebook-comment-picker', label: 'Facebook Comment Picker', href: '/facebook-comment-picker', color: '#1877F2' },
+  ];
+
+  const isSocialPickerActive = [
+    'tiktok-comment-picker',
+    'instagram-comment-picker',
+    'facebook-comment-picker',
+    'youtube-comment-picker',
+  ].includes(activePage);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      try {
+        setIsFullscreen(!!document.fullscreenElement);
+      } catch (e) {}
     };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    try {
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
+      return () => {
+        try {
+          document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        } catch (e) {}
+      };
+    } catch (e) {}
   }, []);
 
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
+    try {
+      if (!document.fullscreenElement) {
+        if (document.documentElement && typeof document.documentElement.requestFullscreen === 'function') {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+      } else {
+        if (typeof document.exitFullscreen === 'function') {
+          document.exitFullscreen().catch(() => {});
+        }
       }
+    } catch (e) {
+      // Catch SecurityError in sandboxed contexts
     }
   };
 
@@ -74,8 +116,11 @@ export const Header: React.FC<HeaderProps> = ({
           }}
           className="flex items-center gap-2 sm:gap-2.5 min-w-0 cursor-pointer group"
         >
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/20 shrink-0 group-hover:scale-105 transition-transform">
-            <Disc className="w-5 h-5 sm:w-6 sm:h-6 animate-spin-slow" />
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-amber-400 hover:bg-amber-300 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/25 shrink-0 group-hover:scale-105 transition-all">
+            <svg viewBox="0 0 24 24" className="w-5 h-5 sm:w-5.5 sm:h-5.5" fill="none">
+              <circle cx="12" cy="12" r="6.8" stroke="#090d16" strokeWidth="2.8" strokeLinecap="round" />
+              <circle cx="12" cy="12" r="2.2" fill="#090d16" />
+            </svg>
           </div>
 
           <div className="min-w-0">
@@ -94,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({
         </a>
 
         {/* Desktop Navigation Pages Menu */}
-        <nav className="hidden lg:flex items-center gap-1 bg-slate-950/80 p-1 rounded-2xl border border-slate-800">
+        <nav className="hidden lg:flex items-center gap-1 bg-slate-950/80 p-1 rounded-2xl border border-slate-800 relative">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive =
@@ -107,6 +152,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={(e) => {
                   e.preventDefault();
                   setActivePage(item.id);
+                  setPickersDropdownOpen(false);
                 }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   isActive
@@ -119,6 +165,59 @@ export const Header: React.FC<HeaderProps> = ({
               </a>
             );
           })}
+
+          {/* Social Comment Pickers Dropdown Menu */}
+          <div
+            className="relative"
+            onMouseEnter={() => setPickersDropdownOpen(true)}
+            onMouseLeave={() => setPickersDropdownOpen(false)}
+          >
+            <button
+              onClick={() => setPickersDropdownOpen((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                isSocialPickerActive
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-md shadow-amber-500/20'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+              }`}
+            >
+              <MessageSquare className={`w-3.5 h-3.5 ${isSocialPickerActive ? 'stroke-[2.5]' : 'text-slate-400'}`} />
+              <span>{t(lang, 'navCommentPickers')}</span>
+              <span className="px-1.5 py-0.2 text-[9px] font-black rounded-full bg-pink-500/20 text-pink-400 border border-pink-500/30">
+                New
+              </span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${pickersDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {pickersDropdownOpen && (
+              <div className="absolute top-full rtl:right-0 ltr:left-0 mt-1.5 w-60 bg-slate-900 border border-slate-800 rounded-2xl p-2 shadow-2xl z-50 animate-fadeIn space-y-1">
+                <div className="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-800">
+                  Giveaway Winner Pickers
+                </div>
+                {socialPickerItems.map((item) => (
+                  <a
+                    key={item.id}
+                    href={item.href}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActivePage(item.id);
+                      setPickersDropdownOpen(false);
+                    }}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition ${
+                      activePage === item.id
+                        ? 'bg-slate-800 text-amber-400'
+                        : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                    }`}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span>{item.label}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
         </nav>
 
         {/* Right Nav Actions */}
@@ -226,6 +325,43 @@ export const Header: React.FC<HeaderProps> = ({
               </a>
             );
           })}
+
+          {/* Mobile Comment Pickers Group */}
+          <div className="pt-2 border-t border-slate-800">
+            <div className="px-3.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+              <span>{t(lang, 'navCommentPickers')}</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-pink-500/20 text-pink-400 text-[9px] font-black">
+                Giveaways
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 mt-1">
+              {socialPickerItems.map((item) => {
+                const isActive = activePage === item.id;
+                return (
+                  <a
+                    key={item.id}
+                    href={item.href}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActivePage(item.id);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-2 p-2 rounded-xl text-xs font-bold transition ${
+                      isActive
+                        ? 'bg-amber-500 text-slate-950'
+                        : 'bg-slate-950/80 text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span className="truncate">{item.label.replace(' Comment Picker', '')}</span>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
 
           <a
             href="/contact"
