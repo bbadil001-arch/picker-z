@@ -71,7 +71,7 @@ async function startServer() {
   // Security: Strict payload size limiter to prevent memory exhaustion attacks
   app.use(express.json({ limit: "25kb" }));
 
-  // Security: Comprehensive HTTP Security Headers Middleware
+  // Security: Comprehensive HTTP Security Headers & CORS Middleware
   app.use((req, res, next) => {
     // Prevent MIME-sniffing
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -82,10 +82,20 @@ async function startServer() {
     // Strict Referrer Policy
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 
-    // Content Security Policy (allows iframe embedding in AI Studio preview, Google Fonts, and local API)
+    // Allow CORS on API routes so client apps (e.g. randomizerwheel.com) can communicate seamlessly
+    if (req.path.startsWith("/api/")) {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+      if (req.method === "OPTIONS") {
+        return res.status(200).end();
+      }
+    }
+
+    // Content Security Policy
     res.setHeader(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; media-src 'self' data: blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; frame-ancestors *;"
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; media-src 'self' data: blob:; connect-src * 'self' https: http: data: blob:; frame-ancestors *;"
     );
 
     next();

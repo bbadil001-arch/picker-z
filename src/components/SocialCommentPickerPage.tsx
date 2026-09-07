@@ -410,24 +410,49 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
         setFetchProgress(40);
         setStatusMessage({
           type: 'info',
-          text: lang === 'ar' ? 'جاري الاتصال بـ YouTube Data API v3 واستخراج التعليقات...' : 'Calling YouTube Data API v3 & retrieving live comments...',
+          text: lang === 'ar' ? 'جاري الاتصال بـ YouTube واستخراج التعليقات والردود...' : 'Connecting to YouTube & retrieving live comments and replies...',
         });
 
-        const res = await fetch('/api/comments/fetch-youtube', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: inputUrl.trim(), maxResults: 500 }),
-        });
+        const endpoints = [
+          '/api/comments/fetch-youtube',
+          'https://ais-pre-ioexe3hzvwkajfvkvjfw4q-735615061112.europe-west2.run.app/api/comments/fetch-youtube',
+        ];
 
-        setFetchProgress(85);
         let data: any = null;
-        try {
-          data = await res.json();
-        } catch (jsonErr) {
-          throw new Error('Could not parse server response');
+        let lastError: any = null;
+
+        for (const endpoint of endpoints) {
+          try {
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: inputUrl.trim(), maxResults: 500 }),
+            });
+
+            if (res.ok) {
+              const parsed = await res.json();
+              if (parsed?.success && Array.isArray(parsed.comments)) {
+                data = parsed;
+                break;
+              } else if (parsed?.error) {
+                lastError = parsed;
+                break;
+              }
+            } else if (res.status === 400 || res.status === 403 || res.status === 429) {
+              const errJson = await res.json().catch(() => null);
+              if (errJson?.error) {
+                lastError = errJson;
+                break;
+              }
+            }
+          } catch (e) {
+            // Continue to fallback endpoint if available
+          }
         }
 
-        if (res.ok && data?.success && Array.isArray(data.comments)) {
+        setFetchProgress(85);
+
+        if (data?.success && Array.isArray(data.comments)) {
           setFetchProgress(100);
           setIsFetching(false);
           setRawComments(data.comments);
@@ -454,17 +479,17 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
         }
 
         // Handle specific server-reported errors
-        if (data?.errorType === 'REFERRER_RESTRICTION') {
+        if (lastError?.errorType === 'REFERRER_RESTRICTION') {
           setIsFetching(false);
           setApiNotice({
-            message: data.error,
-            messageAr: data.errorAr,
-            solution: data.solution,
-            solutionAr: data.solutionAr,
+            message: lastError.error,
+            messageAr: lastError.errorAr,
+            solution: lastError.solution,
+            solutionAr: lastError.solutionAr,
           });
           setStatusMessage({
             type: 'error',
-            text: lang === 'ar' ? data.errorAr : data.error,
+            text: lang === 'ar' ? lastError.errorAr : lastError.error,
           });
           return;
         }
@@ -472,7 +497,7 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
         setIsFetching(false);
         setStatusMessage({
           type: 'error',
-          text: (lang === 'ar' ? data?.errorAr : data?.error) || (lang === 'ar' ? 'تعذر جلب التعليقات من الرابط المدخل.' : 'Failed to fetch YouTube comments for this link.'),
+          text: (lang === 'ar' ? lastError?.errorAr : lastError?.error) || (lang === 'ar' ? 'تعذر جلب التعليقات من الرابط المدخل. يرجى التأكد من أن الفيديو متاح وعام.' : 'Could not fetch comments for this YouTube link. Please ensure the video is public.'),
         });
       } catch (err: any) {
         setIsFetching(false);
