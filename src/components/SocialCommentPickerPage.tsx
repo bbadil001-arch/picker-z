@@ -412,9 +412,14 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
         });
 
         setFetchProgress(85);
-        const data = await res.json();
+        let data: any = null;
+        try {
+          data = await res.json();
+        } catch (jsonErr) {
+          throw new Error('Could not parse server response');
+        }
 
-        if (res.ok && data.success && Array.isArray(data.comments)) {
+        if (res.ok && data?.success && Array.isArray(data.comments)) {
           setFetchProgress(100);
           setIsFetching(false);
           setRawComments(data.comments);
@@ -427,14 +432,14 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
           setStatusMessage({
             type: 'success',
             text: lang === 'ar'
-              ? `تم بنجاح جلب ${data.comments.length} تعليق حقيقي من فيديو YouTube: "${data.videoTitle || 'YouTube'}"!`
-              : `Successfully retrieved ${data.comments.length} real comments from YouTube video: "${data.videoTitle || 'YouTube'}"!`,
+              ? `تم بنجاح جلب ${data.comments.length} تعليق حقيقي من فيديو: "${data.videoTitle || 'YouTube'}"!`
+              : `Successfully retrieved ${data.comments.length} real comments from: "${data.videoTitle || 'YouTube'}"!`,
           });
           return;
         }
 
-        // Handle Google Cloud HTTP Referrer restriction
-        if (data.errorType === 'REFERRER_RESTRICTION') {
+        // Handle specific server-reported errors
+        if (data?.errorType === 'REFERRER_RESTRICTION') {
           setIsFetching(false);
           setApiNotice({
             message: data.error,
@@ -452,13 +457,15 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
         setIsFetching(false);
         setStatusMessage({
           type: 'error',
-          text: (lang === 'ar' ? data.errorAr : data.error) || 'Failed to fetch YouTube comments.',
+          text: (lang === 'ar' ? data?.errorAr : data?.error) || (lang === 'ar' ? 'تعذر جلب التعليقات من الرابط المدخل.' : 'Failed to fetch YouTube comments for this link.'),
         });
-      } catch (err) {
+      } catch (err: any) {
         setIsFetching(false);
         setStatusMessage({
           type: 'error',
-          text: lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم لجلب التعليقات.' : 'Server connection error.',
+          text: lang === 'ar'
+            ? 'تعذر الاتصال بالخادم. يرجى المحاولة مرة أخرى أو التأكد من اتصال الإنترنت.'
+            : 'Could not connect to server. Please try again or verify your connection.',
         });
       }
       return;

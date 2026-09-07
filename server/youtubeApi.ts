@@ -1,6 +1,6 @@
 /**
- * Real YouTube Data API v3 integration for comment extraction and giveaway draws.
- * Securely calls Google APIs server-side without exposing keys to clients.
+ * Real YouTube Data API v3 and Direct Innertube Integration for comment extraction and giveaway draws.
+ * Securely calls YouTube server-side with zero exposure to clients.
  */
 
 export interface YouTubeCommentItem {
@@ -40,7 +40,6 @@ export function extractYouTubeVideoId(inputUrl: string): string | null {
   }
 
   try {
-    // Regex for standard formats
     const patterns = [
       /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/i,
     ];
@@ -59,27 +58,181 @@ export function extractYouTubeVideoId(inputUrl: string): string | null {
 }
 
 /**
- * Fetches real comments from YouTube Data API v3.
+ * Fetches Video Metadata via YouTube oEmbed (Fast, reliable, zero keys needed)
  */
-export async function fetchYouTubeComments(
+export async function fetchVideoOEmbed(videoId: string): Promise<{ title: string; channel: string; thumbnail: string } | null> {
+  try {
+    const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&format=json`;
+    const res = await fetch(oembedUrl, { signal: AbortSignal.timeout(6000) });
+    if (res.ok) {
+      const data: any = await res.json();
+      return {
+        title: data.title || 'YouTube Video',
+        channel: data.author_name || 'YouTube Creator',
+        thumbnail: data.thumbnail_url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+      };
+    }
+  } catch (e) {
+    // Ignore oembed failure, fallback to defaults
+  }
+  return null;
+}
+
+/**
+ * Direct YouTube Innertube Extractor
+ * Extracts real comments directly from public YouTube videos without API key restrictions.
+ */
+export async function fetchYouTubeCommentsDirect(
+  videoId: string,
+  maxFetchCount: number = 500
+): Promise<YouTubeFetchResult | null> {
+  try {
+    const oembed = await fetchVideoOEmbed(videoId);
+    let videoTitle = oembed?.title || 'YouTube Giveaway Video';
+    let channelTitle = oembed?.channel || 'YouTube Creator';
+    let thumbnailUrl = oembed?.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    let totalCommentsReported = 0;
+
+    // Fetch video watch page to acquire Innertube keys and initial comment token
+    const watchRes = await fetch(`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!watchRes.ok) {
+      return null;
+    }
+
+    const html = await watchRes.text();
+
+    const innertubeApiKey = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1] || 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+    const clientVersion = html.match(/"INNERTUBE_CONTEXT_CLIENT_VERSION":"([^"]+)"/)?.[1] || '2.20260904.01.00';
+    const tokenMatch = html.match(/"continuationCommand":\{"token":"([^"]+)"/);
+    let currentToken = tokenMatch?.[1];
+
+    if (!currentToken) {
+      // If no continuation token, check if comments are disabled or video unplayable
+      if (html.includes('"commentsDisabled":true')) {
+        return {
+          success: false,
+          errorType: 'COMMENTS_DISABLED',
+          videoTitle,
+          channelTitle,
+          thumbnailUrl,
+          error: 'Comments are turned off for this video by the creator.',
+          errorAr: 'ميزة التعليقات معطلة على هذا الفيديو من قِبل منشئ المحتوى.',
+        };
+      }
+      return null;
+    }
+
+    const comments: YouTubeCommentItem[] = [];
+    let page = 0;
+    const maxPages = Math.min(Math.ceil(maxFetchCount / 20), 12);
+
+    while (currentToken && page < maxPages && comments.length < maxFetchCount) {
+      page++;
+      const nextRes = await fetch(`https://www.youtube.com/youtubei/v1/next?key=${innertubeApiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        },
+        body: JSON.stringify({
+          context: {
+            client: {
+              clientName: 'WEB',
+              clientVersion,
+            },
+          },
+          continuation: currentToken,
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!nextRes.ok) break;
+      const nextData: any = await nextRes.json();
+
+      // Extract comment header count text if available
+      const header = nextData.onResponseReceivedEndpoints?.[0]?.reloadContinuationItemsCommand?.continuationItems?.[0]?.commentsHeaderRenderer;
+      if (header?.countText?.runs) {
+        const numStr = header.countText.runs.map((r: any) => r.text).join('').replace(/\D/g, '');
+        if (numStr) totalCommentsReported = parseInt(numStr, 10);
+      }
+
+      // Parse comment mutations
+      const mutations = nextData.frameworkUpdates?.entityBatchUpdate?.mutations || [];
+      for (const m of mutations) {
+        const payload = m.payload?.commentEntityPayload;
+        if (payload) {
+          const rawName = payload.author?.displayName || 'User';
+          const username = rawName.startsWith('@') ? rawName : `@${rawName.replace(/\s+/g, '_')}`;
+          const commentText = payload.properties?.content?.content || '';
+          const likesRaw = payload.toolbar?.likeCountNotliked || '0';
+          const likes = parseInt(String(likesRaw).replace(/\D/g, ''), 10) || 0;
+          const timestamp = payload.properties?.publishedTime || 'Recent';
+          const avatarUrl = payload.author?.avatarThumbnailUrl || '';
+
+          if (commentText && !comments.some((c) => c.comment === commentText && c.username === username)) {
+            comments.push({
+              id: `yt_${comments.length + 1}`,
+              username,
+              comment: commentText,
+              likes,
+              timestamp,
+              avatarUrl,
+            });
+          }
+        }
+      }
+
+      // Find next pagination continuation token
+      currentToken = undefined;
+      const eps = nextData.onResponseReceivedEndpoints || [];
+      for (const ep of eps) {
+        const list = ep.reloadContinuationItemsCommand?.continuationItems || ep.appendContinuationItemsAction?.continuationItems || [];
+        for (const item of list) {
+          if (item.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token) {
+            currentToken = item.continuationItemRenderer.continuationEndpoint.continuationCommand.token;
+            break;
+          }
+        }
+        if (currentToken) break;
+      }
+    }
+
+    if (comments.length > 0) {
+      return {
+        success: true,
+        videoTitle,
+        channelTitle,
+        thumbnailUrl,
+        totalCommentsReported: totalCommentsReported || comments.length,
+        comments,
+      };
+    }
+
+    return null;
+  } catch (err: any) {
+    console.warn('YouTube direct extraction note:', err?.message);
+    return null;
+  }
+}
+
+/**
+ * Fetches comments via Google YouTube Data API v3.
+ */
+async function fetchViaDataApiV3(
   videoId: string,
   apiKey: string,
   clientReferer?: string,
   maxFetchCount: number = 500
 ): Promise<YouTubeFetchResult> {
-  if (!apiKey) {
-    return {
-      success: false,
-      errorType: 'NO_API_KEY',
-      error: 'YouTube API Key is not configured on the server.',
-      errorAr: 'مفتاح YouTube API غير معرّف على الخادم.',
-      solution: 'Define YOUTUBE_API_KEY in your environment variables.',
-      solutionAr: 'قم بإضافة متغير YOUTUBE_API_KEY في إعدادات البيئة.',
-    };
-  }
-
   const headers: Record<string, string> = {
-    'Accept': 'application/json',
+    Accept: 'application/json',
     'User-Agent': 'RandomizerWheel-CommentPicker/1.0',
   };
 
@@ -92,7 +245,6 @@ export async function fetchYouTubeComments(
   let thumbnailUrl = '';
   let totalCommentsReported = 0;
 
-  // 1. Fetch Video Details
   try {
     const videoUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${encodeURIComponent(videoId)}&key=${apiKey}`;
     const videoRes = await fetch(videoUrl, { headers });
@@ -141,7 +293,6 @@ export async function fetchYouTubeComments(
     console.warn('YouTube video metadata fetch error:', err?.message);
   }
 
-  // 2. Fetch Comments (Pagination support)
   const comments: YouTubeCommentItem[] = [];
   let nextPageToken: string | undefined = undefined;
   let pageCount = 0;
@@ -246,4 +397,54 @@ export async function fetchYouTubeComments(
       errorAr: 'خطأ في الاتصال بخوادم YouTube.',
     };
   }
+}
+
+/**
+ * Master YouTube comment fetcher:
+ * 1. Tries Direct Innertube Extraction (fast, zero key configuration, reliable for public videos).
+ * 2. If needed, falls back to YouTube Data API v3.
+ */
+export async function fetchYouTubeComments(
+  videoId: string,
+  apiKey: string,
+  clientReferer?: string,
+  maxFetchCount: number = 500
+): Promise<YouTubeFetchResult> {
+  // Strategy 1: Direct YouTube Live Comment Extractor
+  const directResult = await fetchYouTubeCommentsDirect(videoId, maxFetchCount);
+  if (directResult && directResult.success && directResult.comments && directResult.comments.length > 0) {
+    return directResult;
+  }
+
+  // If comments were explicitly disabled on this video, return that directly
+  if (directResult && directResult.errorType === 'COMMENTS_DISABLED') {
+    return directResult;
+  }
+
+  // Strategy 2: Official YouTube Data API v3
+  if (apiKey) {
+    const apiResult = await fetchViaDataApiV3(videoId, apiKey, clientReferer, maxFetchCount);
+    if (apiResult.success) {
+      return apiResult;
+    }
+    // If API returned a specific restriction error and direct also had no comments
+    if (apiResult.errorType === 'REFERRER_RESTRICTION' && directResult?.comments?.length) {
+      return directResult;
+    }
+    if (apiResult.errorType === 'REFERRER_RESTRICTION') {
+      return apiResult;
+    }
+  }
+
+  // If direct returned a result even if 0 comments or metadata
+  if (directResult) {
+    return directResult;
+  }
+
+  return {
+    success: false,
+    errorType: 'API_ERROR',
+    error: 'Could not extract comments from this YouTube video. Please check that the video is public or upload a comments file.',
+    errorAr: 'تعذر استخراج التعليقات من هذا الرابط. يرجى التأكد من أن الفيديو عام أو استخدام خيار رفع ملف التعليقات.',
+  };
 }
