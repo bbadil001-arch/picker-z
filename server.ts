@@ -9,8 +9,7 @@ import { extractYouTubeVideoId, fetchYouTubeComments } from "./server/youtubeApi
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const currentDirname = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
 
 // In-memory sliding window rate limiter for anti-abuse and DDoS protection
 const ipRequestCounts = new Map<string, { count: number; resetTime: number }>();
@@ -429,7 +428,7 @@ Rules:
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(__dirname, "dist");
+    const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
