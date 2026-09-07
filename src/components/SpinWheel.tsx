@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { WheelOption, WheelConfig, Language } from '../types';
 import { getContrastTextColor, getSliceColors } from '../utils/colorThemes';
 import { sound } from '../utils/sound';
-import { Play, Sparkles, Share2, Check } from 'lucide-react';
+import { Play, Sparkles, Share2, Check, Award } from 'lucide-react';
 import { t } from '../utils/translations';
 import { ShareModal } from './ShareModal';
 import { copyTextToClipboard } from '../utils/clipboard';
@@ -16,6 +16,7 @@ interface SpinWheelProps {
   setIsSpinning: (spinning: boolean) => void;
   lang: Language;
   spinTrigger?: number;
+  onOpenCertificate?: () => void;
 }
 
 export const SpinWheel: React.FC<SpinWheelProps> = ({
@@ -27,6 +28,7 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
   setIsSpinning,
   lang,
   spinTrigger,
+  onOpenCertificate,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -429,6 +431,20 @@ export const SpinWheel: React.FC<SpinWheelProps> = ({
           <Share2 className="w-5 h-5 text-amber-400 stroke-[2.2]" />
           <span className="inline">{t(lang, 'shareWheel')}</span>
         </button>
+
+        {/* Draw Certificate Button */}
+        {onOpenCertificate && (
+          <button
+            id="btn-main-draw-certificate"
+            onClick={onOpenCertificate}
+            disabled={isSpinning}
+            title={lang === 'ar' ? 'شهادة السحب الرسمية 🏆' : 'Official Winner Certificate 🏆'}
+            className="w-full sm:w-auto px-4 sm:px-5 py-3.5 sm:py-4 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 hover:text-emerald-200 rounded-2xl text-sm font-bold border border-emerald-500/30 hover:border-emerald-400/50 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer"
+          >
+            <Award className="w-5 h-5 text-emerald-400 stroke-[2.2]" />
+            <span className="inline">{lang === 'ar' ? 'شهادة السحب 🏆' : 'Certificate 🏆'}</span>
+          </button>
+        )}
       </div>
 
       {/* Instructions pill */}

@@ -1237,16 +1237,30 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
                 <span>{isSpinning ? (lang === 'ar' ? 'جاري الدوران...' : 'Spinning...') : (lang === 'ar' ? 'تدوير العجلة الآن' : 'SPIN WHEEL NOW')}</span>
               </button>
 
-              {selectedWinnerForCert && (
-                <button
-                  onClick={() => setIsCertificateModalOpen(true)}
-                  className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 animate-bounce"
-                  title="Generate Official Winner Verification Certificate"
-                >
-                  <Award className="w-4 h-4 text-slate-950" />
-                  <span>{lang === 'ar' ? 'شهادة السحب الرسمية 🏆' : 'Draw Certificate 🏆'}</span>
-                </button>
-              )}
+              <button
+                id="btn-draw-certificate"
+                onClick={() => {
+                  if (!selectedWinnerForCert) {
+                    setStatusMessage({
+                      type: 'info',
+                      text: lang === 'ar'
+                        ? 'يرجى تدوير العجلة أولاً واختيار فائز لتوليد الشهادة الرسمية! 🎡'
+                        : 'Please spin the wheel first to select a winner before generating the official certificate! 🎡',
+                    });
+                    return;
+                  }
+                  setIsCertificateModalOpen(true);
+                }}
+                className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black transition flex items-center gap-1.5 shadow-lg cursor-pointer active:scale-95 ${
+                  selectedWinnerForCert
+                    ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/25 ring-2 ring-emerald-400/30'
+                    : 'bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                }`}
+                title="Generate Official Winner Verification Certificate"
+              >
+                <Award className={`w-4 h-4 ${selectedWinnerForCert ? 'text-slate-950' : 'text-emerald-400'}`} />
+                <span>{lang === 'ar' ? 'شهادة السحب الرسمية 🏆' : 'Draw Certificate 🏆'}</span>
+              </button>
 
               <button
                 onClick={() => {

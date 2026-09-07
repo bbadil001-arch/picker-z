@@ -1,15 +1,16 @@
 import React from 'react';
 import { SpinHistoryItem, Language } from '../types';
-import { History, Trash2, Clock } from 'lucide-react';
+import { History, Trash2, Clock, Award } from 'lucide-react';
 import { t } from '../utils/translations';
 
 interface SpinHistoryProps {
   history: SpinHistoryItem[];
   onClearHistory: () => void;
   lang: Language;
+  onViewCertificate?: (winner: string) => void;
 }
 
-export const SpinHistory: React.FC<SpinHistoryProps> = ({ history, onClearHistory, lang }) => {
+export const SpinHistory: React.FC<SpinHistoryProps> = ({ history, onClearHistory, lang, onViewCertificate }) => {
   if (history.length === 0) return null;
 
   return (
@@ -47,9 +48,21 @@ export const SpinHistory: React.FC<SpinHistoryProps> = ({ history, onClearHistor
               <span className="font-bold text-slate-100 truncate">{item.winner}</span>
             </div>
 
-            <div className="flex items-center gap-1 text-slate-400 text-[10px] sm:text-[11px] shrink-0">
-              <Clock className="w-3 h-3" />
-              <span>{item.timestamp}</span>
+            <div className="flex items-center gap-2 text-slate-400 text-[10px] sm:text-[11px] shrink-0">
+              <div className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>{item.timestamp}</span>
+              </div>
+              {onViewCertificate && (
+                <button
+                  onClick={() => onViewCertificate(item.winner)}
+                  className="px-2 py-0.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-bold transition flex items-center gap-1 cursor-pointer"
+                  title={lang === 'ar' ? 'عرض شهادة الفائز' : 'Certificate'}
+                >
+                  <Award className="w-3 h-3 text-emerald-400" />
+                  <span className="text-[10px]">{lang === 'ar' ? 'الشهادة' : 'Cert'}</span>
+                </button>
+              )}
             </div>
           </div>
         ))}

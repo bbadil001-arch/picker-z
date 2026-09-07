@@ -6,6 +6,7 @@ import { WheelCustomizer } from './components/WheelCustomizer';
 import { WinnerModal } from './components/WinnerModal';
 import { ShareModal } from './components/ShareModal';
 import { SpinHistory } from './components/SpinHistory';
+import { GiveawayCertificateModal } from './components/GiveawayCertificateModal';
 import { SEOContentSection } from './components/SEOContentSection';
 import { Header, ActivePage } from './components/Header';
 import { NumberGeneratorTool } from './components/NumberGeneratorTool';
@@ -101,6 +102,15 @@ export default function App() {
   });
 
   const [winner, setWinner] = useState<WheelOption | null>(null);
+  const [lastWinner, setLastWinner] = useState<string | null>(null);
+  const [certWinnerName, setCertWinnerName] = useState<string | null>(null);
+  const [isAppCertOpen, setIsAppCertOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
   const [isSpinning, setIsSpinning] = useState(false);
   const [spinTrigger, setSpinTrigger] = useState(0);
 
@@ -320,6 +330,7 @@ export default function App() {
   // Handle spin finish
   const handleSpinEnd = (winningOption: WheelOption) => {
     setWinner(winningOption);
+    setLastWinner(winningOption.label);
 
     const historyItem: SpinHistoryItem = {
       id: Date.now().toString(),
@@ -336,6 +347,21 @@ export default function App() {
     if (config.autoRemoveWinner) {
       setOptions((prev) => prev.filter((opt) => opt.id !== winningOption.id));
     }
+  };
+
+  // Open Official Winner Certificate
+  const handleOpenCertificate = (customWinnerName?: string) => {
+    const targetWinner = customWinnerName || lastWinner || (history.length > 0 ? history[0].winner : null);
+    if (!targetWinner) {
+      showToast(
+        lang === 'ar'
+          ? 'يرجى تدوير العجلة أولاً واختيار فائز لتوليد الشهادة الرسمية! 🎡'
+          : 'Please spin the wheel first to select a winner before generating the official certificate! 🎡'
+      );
+      return;
+    }
+    setCertWinnerName(targetWinner);
+    setIsAppCertOpen(true);
   };
 
   // Remove winner manually
@@ -496,6 +522,7 @@ export default function App() {
                   setIsSpinning={setIsSpinning}
                   lang={lang}
                   spinTrigger={spinTrigger}
+                  onOpenCertificate={() => handleOpenCertificate()}
                 />
 
                 {/* Spin History */}
@@ -503,6 +530,7 @@ export default function App() {
                   history={history}
                   onClearHistory={() => setHistory([])}
                   lang={lang}
+                  onViewCertificate={(name) => handleOpenCertificate(name)}
                 />
               </div>
 
@@ -563,6 +591,27 @@ export default function App() {
           handlePageSelect('contact');
         }}
       />
+
+      {/* Main Wheel Official Certificate Modal */}
+      {isAppCertOpen && certWinnerName && (
+        <GiveawayCertificateModal
+          isOpen={isAppCertOpen}
+          onClose={() => setIsAppCertOpen(false)}
+          winnerName={certWinnerName}
+          platformName={config.title || 'Wheel of Names Draw'}
+          giveawayTitle={config.title || 'Official Random Wheel Draw'}
+          totalParticipants={options.filter((o) => !o.hidden).length || history.length || 1}
+          lang={lang}
+        />
+      )}
+
+      {/* Lightweight Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl bg-slate-900/95 border border-amber-500/60 text-amber-300 font-bold text-xs sm:text-sm shadow-2xl shadow-amber-500/20 backdrop-blur flex items-center gap-2.5 animate-fadeIn">
+          <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
       {/* Comprehensive AdSense-Compliant Footer */}
       <footer className="w-full bg-slate-900/95 border-t border-slate-800 py-8 sm:py-10 mt-12 sm:mt-16 text-xs text-slate-400">
