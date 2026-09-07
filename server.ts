@@ -5,6 +5,7 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { ARTICLES } from "./src/data/articles/index.js";
+import { extractYouTubeVideoId, fetchYouTubeComments } from "./server/youtubeApi.ts";
 
 dotenv.config();
 
@@ -93,6 +94,65 @@ async function startServer() {
   // Health check endpoint
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", app: "RandomizerWheel", secure: true });
+  });
+
+  // Check YouTube API key configuration status
+  app.get("/api/comments/status", (req, res) => {
+    const apiKey = process.env.YOUTUBE_API_KEY || "AIzaSyCpEo7CMEYwsJ9EVfTmYUtend5pSCNFTjc";
+    res.json({
+      youtubeConfigured: !!apiKey,
+      platforms: {
+        youtube: { active: !!apiKey, provider: "YouTube Data API v3" },
+        tiktok: { active: true, provider: "Smart Extractor & File Import" },
+        instagram: { active: true, provider: "Smart Extractor & File Import" },
+        facebook: { active: true, provider: "Smart Extractor & File Import" },
+      },
+    });
+  });
+
+  // Real YouTube Data API v3 Comment Fetcher Endpoint
+  app.post("/api/comments/fetch-youtube", apiRateLimiter, async (req, res) => {
+    try {
+      const { url, maxResults } = req.body || {};
+      if (!url || typeof url !== "string") {
+        return res.status(400).json({
+          success: false,
+          errorType: "INVALID_URL",
+          error: "Please provide a valid YouTube video URL or ID.",
+          errorAr: "يرجى تقديم رابط أو معرّف فيديو يوتيوب صالح.",
+        });
+      }
+
+      const videoId = extractYouTubeVideoId(url);
+      if (!videoId) {
+        return res.status(400).json({
+          success: false,
+          errorType: "INVALID_URL",
+          error: "Could not detect a valid YouTube Video ID from the provided link.",
+          errorAr: "تعذر استخراج معرّف فيديو YouTube صالح من الرابط المدخل.",
+        });
+      }
+
+      const apiKey = process.env.YOUTUBE_API_KEY || "AIzaSyCpEo7CMEYwsJ9EVfTmYUtend5pSCNFTjc";
+      const clientReferer = (req.headers["referer"] as string) || (process.env.APP_URL as string) || undefined;
+      const count = typeof maxResults === "number" ? Math.min(Math.max(maxResults, 10), 1000) : 500;
+
+      const result = await fetchYouTubeComments(videoId, apiKey, clientReferer, count);
+
+      if (!result.success) {
+        return res.status(result.errorType === "REFERRER_RESTRICTION" ? 403 : 400).json(result);
+      }
+
+      return res.json(result);
+    } catch (err: any) {
+      console.error("YouTube comment fetch endpoint error:", err);
+      return res.status(500).json({
+        success: false,
+        errorType: "API_ERROR",
+        error: "Internal server error occurred while fetching comments.",
+        errorAr: "حدث خطأ غير متوقع في الخادم أثناء جلب التعليقات.",
+      });
+    }
   });
 
   // XML Sitemap Endpoint with Clean URLs (No #)

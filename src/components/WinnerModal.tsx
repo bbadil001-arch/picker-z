@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { WheelOption, Language } from '../types';
 import confetti from 'canvas-confetti';
-import { Trophy, Trash2, RotateCcw, Copy, Check, Share2 } from 'lucide-react';
+import { Trophy, Trash2, RotateCcw, Copy, Check, Share2, Award } from 'lucide-react';
 import { t } from '../utils/translations';
 import { ShareModal } from './ShareModal';
+import { GiveawayCertificateModal } from './GiveawayCertificateModal';
 import { copyTextToClipboard } from '../utils/clipboard';
 
 interface WinnerModalProps {
@@ -27,6 +28,7 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isCertModalOpen, setIsCertModalOpen] = useState(false);
 
   useEffect(() => {
     if (winner) {
@@ -71,6 +73,18 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
         items={(options || []).map((o) => o.label)}
         winnerName={winner.label}
       />
+
+      {isCertModalOpen && (
+        <GiveawayCertificateModal
+          isOpen={isCertModalOpen}
+          onClose={() => setIsCertModalOpen(false)}
+          winnerName={winner.label}
+          platformName={wheelTitle || 'Wheel of Names Draw'}
+          giveawayTitle={wheelTitle || 'Official Random Wheel Draw'}
+          totalParticipants={options?.length || 1}
+          lang={lang}
+        />
+      )}
 
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
         <div className="bg-slate-900 border-2 border-amber-500/80 rounded-3xl max-w-md w-[92vw] sm:w-full p-5 sm:p-6 text-center shadow-2xl shadow-amber-500/20 relative space-y-4 sm:space-y-5 animate-scaleUp">
@@ -117,6 +131,16 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
             >
               <Share2 className="w-4 h-4 text-amber-400 stroke-[2.2]" />
               <span>{t(lang, 'shareResult')}</span>
+            </button>
+
+            {/* Official Verifiable Certificate Button */}
+            <button
+              id="btn-view-certificate"
+              onClick={() => setIsCertModalOpen(true)}
+              className="w-full py-2.5 sm:py-3 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 hover:border-emerald-400/50 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+            >
+              <Award className="w-4 h-4 text-emerald-400 stroke-[2.2]" />
+              <span>{lang === 'ar' ? 'عرض شهادة الفائز الرسمية 🏆' : 'Official Winner Certificate 🏆'}</span>
             </button>
 
             {/* Action Row: Remove Winner & Copy Name */}

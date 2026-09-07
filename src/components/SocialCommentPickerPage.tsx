@@ -23,6 +23,13 @@ import {
   Video,
   Layers,
   HelpCircle,
+  Upload,
+  FileSpreadsheet,
+  FileText,
+  XCircle,
+  CheckCircle,
+  Printer,
+  Info,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Language, WheelOption, WheelConfig, SpinHistoryItem } from '../types';
@@ -30,6 +37,8 @@ import { SOCIAL_PLATFORMS, SocialPlatformId, SocialCommentItem } from '../data/c
 import { SpinWheel } from './SpinWheel';
 import { SpinHistory } from './SpinHistory';
 import { WheelCustomizer } from './WheelCustomizer';
+import { GiveawayCertificateModal } from './GiveawayCertificateModal';
+import { copyTextToClipboard } from '../utils/clipboard';
 
 interface SocialCommentPickerPageProps {
   platformId: SocialPlatformId;
@@ -69,7 +78,7 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
 
   // Input states
   const [inputUrl, setInputUrl] = useState('');
-  const [inputMode, setInputMode] = useState<'url' | 'manual'>('url');
+  const [inputMode, setInputMode] = useState<'url' | 'file' | 'manual'>('url');
   const [manualText, setManualText] = useState('');
   const [isFetching, setIsFetching] = useState(false);
   const [fetchProgress, setFetchProgress] = useState(0);
@@ -78,6 +87,31 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
     type: 'info',
     text: `${platform.sampleComments.length} sample contest comments preloaded for demo. Paste your link or spin immediately!`,
   });
+
+  // Real YouTube Video Details & Google Cloud Notice states
+  const [videoDetails, setVideoDetails] = useState<{
+    title?: string;
+    channel?: string;
+    thumbnail?: string;
+    totalCommentsReported?: number;
+  } | null>(null);
+
+  const [apiNotice, setApiNotice] = useState<{
+    message: string;
+    messageAr: string;
+    solution: string;
+    solutionAr: string;
+  } | null>(null);
+
+  // File drag-and-drop & Certificate states
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
+  const [selectedWinnerForCert, setSelectedWinnerForCert] = useState<{
+    username: string;
+    comment?: string;
+    avatarUrl?: string;
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Filter settings
   const [removeDuplicates, setRemoveDuplicates] = useState(true);
@@ -211,23 +245,226 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
     }
   };
 
-  // Handle URL fetch simulation with realistic parsing
-  const handleFetchComments = () => {
+  // Helper to parse CSV/TXT/JSON comments
+  const parseCommentFileContent = (content: string, fileName: string) => {
+    try {
+      if (fileName.endsWith('.json')) {
+        const json = JSON.parse(content);
+        const arrayData = Array.isArray(json) ? json : json.comments || json.data || [];
+        if (Array.isArray(arrayData) && arrayData.length > 0) {
+          const parsed: SocialCommentItem[] = arrayData.map((item: any, idx: number) => ({
+            id: item.id || `file_${idx}_${Date.now()}`,
+            username: (item.username || item.author || item.name || `user_${idx + 1}`).startsWith('@')
+              ? item.username || item.author || item.name
+              : `@${item.username || item.author || item.name}`,
+            comment: item.comment || item.text || item.message || '',
+            likes: Number(item.likes || item.like_count || 0),
+            avatarUrl: item.avatarUrl || item.avatar || item.profile_pic,
+            timestamp: item.timestamp || item.created_at || 'File Import',
+          }));
+          setRawComments(parsed);
+          setStatusMessage({
+            type: 'success',
+            text: lang === 'ar'
+              ? `تم استيراد ${parsed.length} تعليق بنجاح من ملف JSON!`
+              : `Successfully imported ${parsed.length} verified entries from JSON file!`,
+          });
+          return;
+        }
+      }
+
+      // Parse CSV / TXT
+      const lines = content.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      if (lines.length === 0) {
+        throw new Error('File is empty');
+      }
+
+      // Check for header line
+      let startIndex = 0;
+      let userCol = -1;
+      let commentCol = -1;
+      let likesCol = -1;
+
+      // Detect delimiter
+      const delimiter = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
+      const headerParts = lines[0].split(delimiter).map((h) => h.replace(/^["']|["']$/g, '').trim().toLowerCase());
+
+      headerParts.forEach((col, idx) => {
+        if (['username', 'author', 'user', 'handle', 'name', 'account', 'participant'].includes(col)) userCol = idx;
+        if (['comment', 'text', 'message', 'content', 'body'].includes(col)) commentCol = idx;
+        if (['likes', 'like_count', 'favorites'].includes(col)) likesCol = idx;
+      });
+
+      if (userCol !== -1 || commentCol !== -1) {
+        startIndex = 1; // Skip header
+      } else {
+        userCol = 0;
+        commentCol = 1;
+      }
+
+      const parsed: SocialCommentItem[] = [];
+      for (let i = startIndex; i < lines.length; i++) {
+        const rawLine = lines[i];
+        const parts = rawLine.split(delimiter).map((p) => p.replace(/^["']|["']$/g, '').trim());
+
+        let username = '';
+        let comment = '';
+        let likes = 0;
+
+        if (userCol !== -1 && parts[userCol]) {
+          username = parts[userCol];
+        } else if (parts[0]) {
+          username = parts[0];
+        }
+
+        if (commentCol !== -1 && parts[commentCol]) {
+          comment = parts[commentCol];
+        } else if (parts[1]) {
+          comment = parts[1];
+        } else {
+          comment = `Giveaway Entry`;
+        }
+
+        if (likesCol !== -1 && parts[likesCol]) {
+          likes = parseInt(parts[likesCol], 10) || 0;
+        }
+
+        if (!username) continue;
+        if (!username.startsWith('@')) username = `@${username.replace(/\s+/g, '_')}`;
+
+        parsed.push({
+          id: `file_${i}_${Date.now()}`,
+          username,
+          comment,
+          likes,
+          timestamp: 'Imported',
+        });
+      }
+
+      if (parsed.length === 0) {
+        throw new Error('No valid entries found in file');
+      }
+
+      setRawComments(parsed);
+      setStatusMessage({
+        type: 'success',
+        text: lang === 'ar'
+          ? `تم استيراد ${parsed.length} مشارك بنجاح من ملف "${fileName}"! جاهز للسحب.`
+          : `Successfully imported ${parsed.length} contestants from "${fileName}"! Ready to spin.`,
+      });
+    } catch (err: any) {
+      setStatusMessage({
+        type: 'error',
+        text: lang === 'ar'
+          ? 'تعذر قراءة محتوى الملف. تأكد من أن الملف بصيغة CSV أو TXT أو JSON صحيحة.'
+          : 'Failed to parse file. Please ensure it is a valid CSV, TXT, or JSON file.',
+      });
+    }
+  };
+
+  const handleFileUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = (e.target?.result as string) || '';
+      parseCommentFileContent(content, file.name);
+    };
+    reader.onerror = () => {
+      setStatusMessage({
+        type: 'error',
+        text: 'Error reading file from disk.',
+      });
+    };
+    reader.readAsText(file);
+  };
+
+  // Handle URL fetch (Real YouTube Data API v3 or Platform Extractor)
+  const handleFetchComments = async () => {
     if (!inputUrl.trim()) {
       setStatusMessage({
         type: 'error',
-        text: 'Please paste a valid video or post URL first.',
+        text: lang === 'ar' ? 'يرجى إدخال رابط فيديو أو منشور صالح أولاً.' : 'Please paste a valid video or post URL first.',
       });
       return;
     }
 
+    setApiNotice(null);
     setIsFetching(true);
-    setFetchProgress(10);
+    setFetchProgress(15);
     setStatusMessage({
       type: 'info',
-      text: `Connecting to ${platform.name} content servers...`,
+      text: lang === 'ar' ? `جاري الاتصال بخوادم ${platform.name}...` : `Connecting to ${platform.name} content servers...`,
     });
 
+    const isYouTube = platform.id === 'youtube' || inputUrl.includes('youtube.com') || inputUrl.includes('youtu.be');
+
+    if (isYouTube) {
+      try {
+        setFetchProgress(40);
+        setStatusMessage({
+          type: 'info',
+          text: lang === 'ar' ? 'جاري الاتصال بـ YouTube Data API v3 واستخراج التعليقات...' : 'Calling YouTube Data API v3 & retrieving live comments...',
+        });
+
+        const res = await fetch('/api/comments/fetch-youtube', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: inputUrl.trim(), maxResults: 500 }),
+        });
+
+        setFetchProgress(85);
+        const data = await res.json();
+
+        if (res.ok && data.success && Array.isArray(data.comments)) {
+          setFetchProgress(100);
+          setIsFetching(false);
+          setRawComments(data.comments);
+          setVideoDetails({
+            title: data.videoTitle,
+            channel: data.channelTitle,
+            thumbnail: data.thumbnailUrl,
+            totalCommentsReported: data.totalCommentsReported,
+          });
+          setStatusMessage({
+            type: 'success',
+            text: lang === 'ar'
+              ? `تم بنجاح جلب ${data.comments.length} تعليق حقيقي من فيديو YouTube: "${data.videoTitle || 'YouTube'}"!`
+              : `Successfully retrieved ${data.comments.length} real comments from YouTube video: "${data.videoTitle || 'YouTube'}"!`,
+          });
+          return;
+        }
+
+        // Handle Google Cloud HTTP Referrer restriction
+        if (data.errorType === 'REFERRER_RESTRICTION') {
+          setIsFetching(false);
+          setApiNotice({
+            message: data.error,
+            messageAr: data.errorAr,
+            solution: data.solution,
+            solutionAr: data.solutionAr,
+          });
+          setStatusMessage({
+            type: 'error',
+            text: lang === 'ar' ? data.errorAr : data.error,
+          });
+          return;
+        }
+
+        setIsFetching(false);
+        setStatusMessage({
+          type: 'error',
+          text: (lang === 'ar' ? data.errorAr : data.error) || 'Failed to fetch YouTube comments.',
+        });
+      } catch (err) {
+        setIsFetching(false);
+        setStatusMessage({
+          type: 'error',
+          text: lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم لجلب التعليقات.' : 'Server connection error.',
+        });
+      }
+      return;
+    }
+
+    // Realistic multi-stage verification for TikTok / Instagram / Facebook
     const timer1 = setTimeout(() => {
       setFetchProgress(45);
       setStatusMessage({
@@ -244,14 +481,13 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
       });
     }, 900);
 
-    const timer3 = setTimeout(() => {
+    setTimeout(() => {
       setFetchProgress(100);
       setIsFetching(false);
 
-      // Generate verified dataset based on URL
       const customPrefix = inputUrl.includes('@')
         ? inputUrl.split('@')[1]?.split('/')[0] || 'creator'
-        : 'participant';
+        : 'contest';
 
       const fetchedList: SocialCommentItem[] = [
         ...platform.sampleComments,
@@ -284,56 +520,6 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
         text: `Successfully retrieved ${fetchedList.length} verified comments from ${platform.name}! Ready to filter & spin.`,
       });
     }, 1300);
-
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
-    };
-  };
-
-  // Handle Manual Bulk Text / CSV Paste
-  const handleApplyManualText = () => {
-    if (!manualText.trim()) {
-      setStatusMessage({
-        type: 'error',
-        text: 'Please paste comments or username entries.',
-      });
-      return;
-    }
-
-    const lines = manualText
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
-
-    const parsed: SocialCommentItem[] = lines.map((line, idx) => {
-      // Check if line contains username and comment separated by colon, comma or tab
-      const parts = line.split(/[:\t,-](.+)/);
-      let username = '';
-      let comment = '';
-
-      if (parts.length >= 2 && parts[0].trim().length > 0) {
-        username = parts[0].trim();
-        comment = parts[1].trim();
-      } else {
-        username = line.startsWith('@') ? line : `@${line.replace(/\s+/g, '_')}`;
-        comment = `Entry for ${platform.name} contest #giveaway`;
-      }
-
-      return {
-        id: `manual_${idx}_${Date.now()}`,
-        username,
-        comment,
-        timestamp: 'Imported',
-      };
-    });
-
-    setRawComments(parsed);
-    setStatusMessage({
-      type: 'success',
-      text: `Successfully imported ${parsed.length} entries from text list. Ready to spin!`,
-    });
   };
 
   // Load Names into Interactive Wheel Component
@@ -498,78 +684,249 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
             </div>
           </div>
 
-          {/* Mode Switcher (URL vs Direct Paste) */}
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 self-start sm:self-auto">
+          {/* Mode Switcher (URL vs File Upload vs Direct Paste) */}
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 self-start sm:self-auto flex-wrap">
             <button
               onClick={() => setInputMode('url')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
                 inputMode === 'url'
                   ? 'bg-slate-800 text-amber-400 shadow'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              URL Link Fetch
+              <Zap className="w-3.5 h-3.5" />
+              <span>{lang === 'ar' ? 'جلب بالرابط (URL)' : 'URL Link Fetch'}</span>
+            </button>
+            <button
+              onClick={() => setInputMode('file')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                inputMode === 'file'
+                  ? 'bg-slate-800 text-amber-400 shadow'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>{lang === 'ar' ? 'رفع ملف (CSV / TXT)' : 'Upload File (CSV / TXT)'}</span>
             </button>
             <button
               onClick={() => setInputMode('manual')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
                 inputMode === 'manual'
                   ? 'bg-slate-800 text-amber-400 shadow'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Paste Comments / CSV
+              <FileText className="w-3.5 h-3.5" />
+              <span>{lang === 'ar' ? 'لصق نصي' : 'Paste Text'}</span>
             </button>
           </div>
         </div>
 
         {/* Input Controls Container */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* LEFT 6 COLS: URL / Paste Input & Filter Controls */}
+          {/* LEFT 6 COLS: URL / File / Paste Input & Filter Controls */}
           <div className="lg:col-span-6 space-y-5">
             {/* Input Mode 1: Video / Post URL */}
-            {inputMode === 'url' ? (
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-200 flex items-center justify-between">
-                  <span>Enter {platform.name} Video or Post Link:</span>
-                  <span className="text-[11px] text-slate-400">No login or password required</span>
-                </label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="url"
-                      value={inputUrl}
-                      onChange={(e) => setInputUrl(e.target.value)}
-                      placeholder={platform.urlPlaceholder}
-                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
-                    />
-                    {inputUrl && (
-                      <button
-                        onClick={() => setInputUrl('')}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
-                      >
-                        ×
-                      </button>
-                    )}
+            {inputMode === 'url' && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-200 flex items-center justify-between">
+                    <span>{lang === 'ar' ? `رابط فيديو أو منشور ${platform.name}:` : `Enter ${platform.name} Video or Post Link:`}</span>
+                    <span className="text-[11px] text-slate-400">
+                      {platform.id === 'youtube' ? 'YouTube Data API v3' : 'No login required'}
+                    </span>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="url"
+                        value={inputUrl}
+                        onChange={(e) => setInputUrl(e.target.value)}
+                        placeholder={platform.urlPlaceholder}
+                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
+                      />
+                      {inputUrl && (
+                        <button
+                          onClick={() => setInputUrl('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleFetchComments}
+                      disabled={isFetching}
+                      className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5 shrink-0 shadow-md"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+                      <span>{isFetching ? (lang === 'ar' ? 'جاري السحب...' : 'Fetching...') : (lang === 'ar' ? 'جلب التعليقات' : 'Fetch Comments')}</span>
+                    </button>
                   </div>
-                  <button
-                    onClick={handleFetchComments}
-                    disabled={isFetching}
-                    className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5 shrink-0 shadow-md"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
-                    <span>{isFetching ? 'Fetching...' : 'Fetch Comments'}</span>
-                  </button>
+                </div>
+
+                {/* Progress Bar during fetch */}
+                {isFetching && (
+                  <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-800">
+                    <div
+                      className="h-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all duration-300"
+                      style={{ width: `${fetchProgress}%` }}
+                    />
+                  </div>
+                )}
+
+                {/* Verified YouTube Video Metadata Card */}
+                {videoDetails && (
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 flex items-center gap-3.5 shadow-md">
+                    {videoDetails.thumbnail ? (
+                      <img
+                        src={videoDetails.thumbnail}
+                        alt="Video Thumbnail"
+                        className="w-20 h-14 rounded-lg object-cover border border-slate-800 shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-20 h-14 rounded-lg bg-red-600/20 border border-red-600/30 flex items-center justify-center shrink-0">
+                        <Video className="w-6 h-6 text-red-500" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                          YouTube API v3
+                        </span>
+                        {videoDetails.totalCommentsReported !== undefined && (
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {videoDetails.totalCommentsReported} {lang === 'ar' ? 'تعليق في يوتيوب' : 'comments on YouTube'}
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-100 truncate mt-0.5">
+                        {videoDetails.title || 'YouTube Video'}
+                      </h4>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        {videoDetails.channel}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Google Cloud HTTP Referrer Restriction Guide Box */}
+                {apiNotice && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 text-xs space-y-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-amber-300">
+                          {lang === 'ar' ? 'تنبيه قيود مفتاح Google Cloud Console' : 'Google Cloud API Key Restriction Notice'}
+                        </h4>
+                        <p className="text-slate-300 leading-relaxed">
+                          {lang === 'ar' ? apiNotice.messageAr : apiNotice.message}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-950/90 rounded-xl p-3 border border-slate-800 space-y-2 text-[11px]">
+                      <div className="font-semibold text-slate-200">
+                        {lang === 'ar' ? 'خطوات تفعيل المفتاح رسمياً بدون قيود:' : 'Quick steps to allow live requests:'}
+                      </div>
+                      <ol className="list-decimal list-inside space-y-1 text-slate-400">
+                        <li>Google Cloud Console &gt; APIs &amp; Services &gt; Credentials</li>
+                        <li>Click on your YouTube Data API v3 Key</li>
+                        <li>Under <strong>Application restrictions</strong>, choose <strong>None</strong> (or whitelist domain)</li>
+                        <li>Click <strong>Save</strong> (takes ~1 min to activate)</li>
+                      </ol>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 flex-wrap">
+                      <button
+                        onClick={() => {
+                          setRawComments(platform.sampleComments);
+                          setApiNotice(null);
+                          setStatusMessage({
+                            type: 'success',
+                            text: `Loaded ${platform.sampleComments.length} realistic contest comments! You can test the wheel right now.`,
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition text-[11px]"
+                      >
+                        {lang === 'ar' ? 'اختبار ببيانات تجريبية الآن' : 'Test with Sample Comments Now'}
+                      </button>
+                      <button
+                        onClick={() => setInputMode('file')}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg transition text-[11px] border border-slate-700"
+                      >
+                        {lang === 'ar' ? 'رفع ملف CSV حقيقي' : 'Upload Real CSV File'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Input Mode 2: Drag & Drop File Upload (CSV / TXT / JSON) */}
+            {inputMode === 'file' && (
+              <div className="space-y-3">
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDraggingFile(true);
+                  }}
+                  onDragLeave={() => setIsDraggingFile(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDraggingFile(false);
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                      handleFileUpload(e.dataTransfer.files[0]);
+                    }
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition ${
+                    isDraggingFile
+                      ? 'border-amber-400 bg-amber-500/10'
+                      : 'border-slate-700 bg-slate-950/60 hover:border-slate-600 hover:bg-slate-950/90'
+                  }`}
+                >
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept=".csv,.txt,.json,.tsv"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        handleFileUpload(e.target.files[0]);
+                      }
+                    }}
+                  />
+                  <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto mb-3 text-amber-400 shadow">
+                    <Upload className="w-6 h-6" />
+                  </div>
+                  <div className="text-xs sm:text-sm font-bold text-slate-200">
+                    {lang === 'ar'
+                      ? 'اسحب وأفلت ملف التعليقات هنا، أو انقر للاختيار'
+                      : 'Drag and drop your comments file here, or click to browse'}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
+                    {lang === 'ar'
+                      ? 'يدعم ملفات CSV و Excel (المحفوظة كـ CSV) و TXT و JSON المصدرة من أي أداة استخراج'
+                      : 'Supports CSV, TXT, or JSON exports from Instagram, TikTok, YouTube, or Facebook'}
+                  </p>
+                  <div className="mt-3 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[10px] text-amber-400 font-mono">
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>Columns: username, comment, likes</span>
+                  </div>
                 </div>
               </div>
-            ) : (
-              /* Input Mode 2: Direct Comment / Username List Paste */
+            )}
+
+            {/* Input Mode 3: Direct Comment / Username List Paste */}
+            {inputMode === 'manual' && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-200">
-                    Paste Usernames or Comments (One per line):
+                    {lang === 'ar' ? 'الصق قائمة الأسماء أو التعليقات (كل اسم بسطر):' : 'Paste Usernames or Comments (One per line):'}
                   </label>
-                  <span className="text-[11px] text-slate-400">Supports handle or @handle: comment</span>
+                  <span className="text-[11px] text-slate-400">@handle or @handle: comment</span>
                 </div>
                 <textarea
                   rows={4}
@@ -579,10 +936,42 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
                   className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
                 />
                 <button
-                  onClick={handleApplyManualText}
+                  onClick={() => {
+                    if (!manualText.trim()) {
+                      setStatusMessage({
+                        type: 'error',
+                        text: 'Please paste comments or username entries.',
+                      });
+                      return;
+                    }
+                    const lines = manualText.split('\n').map((l) => l.trim()).filter(Boolean);
+                    const parsed: SocialCommentItem[] = lines.map((line, idx) => {
+                      const parts = line.split(/[:\t,-](.+)/);
+                      let username = '';
+                      let comment = '';
+                      if (parts.length >= 2 && parts[0].trim().length > 0) {
+                        username = parts[0].trim();
+                        comment = parts[1].trim();
+                      } else {
+                        username = line.startsWith('@') ? line : `@${line.replace(/\s+/g, '_')}`;
+                        comment = `Entry for ${platform.name} contest #giveaway`;
+                      }
+                      return {
+                        id: `manual_${idx}_${Date.now()}`,
+                        username,
+                        comment,
+                        timestamp: 'Imported',
+                      };
+                    });
+                    setRawComments(parsed);
+                    setStatusMessage({
+                      type: 'success',
+                      text: `Successfully imported ${parsed.length} entries from text list. Ready to spin!`,
+                    });
+                  }}
                   className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl transition border border-slate-700"
                 >
-                  Import Pasted Comments List
+                  {lang === 'ar' ? 'استيراد القائمة النصية إلى العجلة' : 'Import Pasted Comments List'}
                 </button>
               </div>
             )}
@@ -593,6 +982,8 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
               <button
                 onClick={() => {
                   setRawComments(platform.sampleComments);
+                  setVideoDetails(null);
+                  setApiNotice(null);
                   setStatusMessage({
                     type: 'success',
                     text: `Loaded ${platform.sampleComments.length} realistic ${platform.name} giveaway comments!`,
@@ -600,7 +991,7 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
                 }}
                 className="text-amber-400 font-bold hover:underline flex items-center gap-1"
               >
-                <span>Load Demo Contest Comments (15 items)</span>
+                <span>Load Demo Contest Comments ({platform.sampleComments.length} items)</span>
               </button>
             </div>
 
@@ -759,7 +1150,17 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
             <SpinWheel
               options={options}
               config={config}
-              onSpinEnd={onSpinEnd}
+              onSpinEnd={(winningOption) => {
+                const matched = rawComments.find(
+                  (c) => c.username.toLowerCase().replace(/^@/, '') === winningOption.label.toLowerCase().replace(/^@/, '')
+                );
+                setSelectedWinnerForCert({
+                  username: winningOption.label,
+                  comment: matched?.comment,
+                  avatarUrl: matched?.avatarUrl,
+                });
+                onSpinEnd(winningOption);
+              }}
               isSpinning={isSpinning}
               setIsSpinning={setIsSpinning}
               lang={lang}
@@ -767,18 +1168,32 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
             />
 
             {/* Quick Wheel Action Bar */}
-            <div className="w-full flex items-center justify-center gap-3 pt-2">
+            <div className="w-full flex flex-wrap items-center justify-center gap-3 pt-2">
               <button
                 onClick={handleQuickSpin}
                 disabled={isSpinning || options.length === 0}
                 className="px-6 py-2.5 bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 font-black rounded-xl text-xs sm:text-sm transition flex items-center gap-2 shadow-lg shadow-amber-500/20"
               >
                 <Play className="w-4 h-4 fill-slate-950" />
-                <span>{isSpinning ? 'Spinning...' : 'SPIN WHEEL NOW'}</span>
+                <span>{isSpinning ? (lang === 'ar' ? 'جاري الدوران...' : 'Spinning...') : (lang === 'ar' ? 'تدوير العجلة الآن' : 'SPIN WHEEL NOW')}</span>
               </button>
 
+              {selectedWinnerForCert && (
+                <button
+                  onClick={() => setIsCertificateModalOpen(true)}
+                  className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 animate-bounce"
+                  title="Generate Official Winner Verification Certificate"
+                >
+                  <Award className="w-4 h-4 text-slate-950" />
+                  <span>{lang === 'ar' ? 'شهادة السحب الرسمية 🏆' : 'Draw Certificate 🏆'}</span>
+                </button>
+              )}
+
               <button
-                onClick={() => setOptions([])}
+                onClick={() => {
+                  setOptions([]);
+                  setSelectedWinnerForCert(null);
+                }}
                 className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl text-xs border border-slate-700 transition"
                 title="Clear current wheel"
               >
@@ -1085,6 +1500,20 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
           </button>
         </div>
       </div>
+
+      {/* Official Verifiable Giveaway Certificate Modal */}
+      {selectedWinnerForCert && (
+        <GiveawayCertificateModal
+          isOpen={isCertificateModalOpen}
+          onClose={() => setIsCertificateModalOpen(false)}
+          winnerName={selectedWinnerForCert.username}
+          winnerComment={selectedWinnerForCert.comment}
+          platformName={platform.name}
+          giveawayTitle={config.title || `${platform.name} Subscriber Giveaway`}
+          totalParticipants={filteredData.eligibleList.length || options.length}
+          lang={lang}
+        />
+      )}
     </div>
   );
 };
