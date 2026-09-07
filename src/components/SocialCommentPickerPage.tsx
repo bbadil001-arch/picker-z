@@ -413,41 +413,27 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
           text: lang === 'ar' ? 'جاري الاتصال بـ YouTube واستخراج التعليقات والردود...' : 'Connecting to YouTube & retrieving live comments and replies...',
         });
 
-        const endpoints = [
-          '/api/comments/fetch-youtube',
-          'https://ais-pre-ioexe3hzvwkajfvkvjfw4q-735615061112.europe-west2.run.app/api/comments/fetch-youtube',
-        ];
-
         let data: any = null;
         let lastError: any = null;
 
-        for (const endpoint of endpoints) {
-          try {
-            const res = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: inputUrl.trim(), maxResults: 500 }),
-            });
+        try {
+          const res = await fetch('/api/comments/fetch-youtube', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: inputUrl.trim(), maxResults: 500 }),
+          });
 
-            if (res.ok) {
-              const parsed = await res.json();
-              if (parsed?.success && Array.isArray(parsed.comments)) {
-                data = parsed;
-                break;
-              } else if (parsed?.error) {
-                lastError = parsed;
-                break;
-              }
-            } else if (res.status === 400 || res.status === 403 || res.status === 429) {
-              const errJson = await res.json().catch(() => null);
-              if (errJson?.error) {
-                lastError = errJson;
-                break;
-              }
-            }
-          } catch (e) {
-            // Continue to fallback endpoint if available
+          const parsed = await res.json().catch(() => null);
+          if (res.ok && parsed?.success && Array.isArray(parsed.comments)) {
+            data = parsed;
+          } else if (parsed?.error) {
+            lastError = parsed;
           }
+        } catch (fetchErr: any) {
+          lastError = {
+            error: fetchErr?.message || 'Network error',
+            errorAr: 'خطأ في الاتصال بالخادم',
+          };
         }
 
         setFetchProgress(85);
