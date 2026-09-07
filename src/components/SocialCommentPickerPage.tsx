@@ -94,6 +94,8 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
     channel?: string;
     thumbnail?: string;
     totalCommentsReported?: number;
+    topLevelCount?: number;
+    repliesCount?: number;
   } | null>(null);
 
   const [apiNotice, setApiNotice] = useState<{
@@ -115,6 +117,7 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
 
   // Filter settings
   const [removeDuplicates, setRemoveDuplicates] = useState(true);
+  const [includeReplies, setIncludeReplies] = useState(true);
   const [filterKeyword, setFilterKeyword] = useState('');
   const [requireMention, setRequireMention] = useState(platformId === 'instagram');
   const [blacklistInput, setBlacklistInput] = useState('admin, moderator, bot, contesthost');
@@ -187,6 +190,11 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
   const filteredData = useMemo(() => {
     let list = [...rawComments];
 
+    // 0. Include or Exclude Comment Replies
+    if (!includeReplies) {
+      list = list.filter((c) => !c.isReply);
+    }
+
     // 1. Blacklist
     if (blacklistSet.size > 0) {
       list = list.filter((c) => {
@@ -236,7 +244,7 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
         duplicatesFiltered: 0,
       };
     }
-  }, [rawComments, blacklistSet, filterKeyword, requireMention, minCommentLength, removeDuplicates]);
+  }, [rawComments, includeReplies, blacklistSet, filterKeyword, requireMention, minCommentLength, removeDuplicates]);
 
   // Smooth scroll helper for Interactive CTAs
   const scrollToToolStage = () => {
@@ -428,12 +436,19 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
             channel: data.channelTitle,
             thumbnail: data.thumbnailUrl,
             totalCommentsReported: data.totalCommentsReported,
+            topLevelCount: data.topLevelCount,
+            repliesCount: data.repliesCount,
           });
+          const replySummary = data.repliesCount
+            ? (lang === 'ar'
+                ? ` (${data.topLevelCount || (data.comments.length - data.repliesCount)} تعليق رئيسي + ${data.repliesCount} رد)`
+                : ` (${data.topLevelCount || (data.comments.length - data.repliesCount)} main + ${data.repliesCount} replies)`)
+            : '';
           setStatusMessage({
             type: 'success',
             text: lang === 'ar'
-              ? `تم بنجاح جلب ${data.comments.length} تعليق حقيقي من فيديو: "${data.videoTitle || 'YouTube'}"!`
-              : `Successfully retrieved ${data.comments.length} real comments from: "${data.videoTitle || 'YouTube'}"!`,
+              ? `تم بنجاح جلب ${data.comments.length} تعليق حقيقي${replySummary} من فيديو: "${data.videoTitle || 'YouTube'}"!`
+              : `Successfully retrieved ${data.comments.length} real comments${replySummary} from: "${data.videoTitle || 'YouTube'}"!`,
           });
           return;
         }
@@ -800,11 +815,16 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
-                          YouTube API v3
+                          YouTube Video
                         </span>
                         {videoDetails.totalCommentsReported !== undefined && (
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {videoDetails.totalCommentsReported} {lang === 'ar' ? 'تعليق في يوتيوب' : 'comments on YouTube'}
+                          <span className="text-[10px] text-slate-300 font-mono bg-slate-900 px-2 py-0.5 rounded-md border border-slate-800">
+                            {rawComments.length} {lang === 'ar' ? 'تعليق مستخرج' : 'extracted comments'}
+                          </span>
+                        )}
+                        {videoDetails.repliesCount !== undefined && videoDetails.repliesCount > 0 && (
+                          <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                            {videoDetails.topLevelCount || (rawComments.length - videoDetails.repliesCount)} {lang === 'ar' ? 'رئيسي' : 'main'} + {videoDetails.repliesCount} {lang === 'ar' ? 'رد' : 'replies'}
                           </span>
                         )}
                       </div>
@@ -1033,10 +1053,10 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <label className="text-xs font-bold text-slate-200 block cursor-pointer" htmlFor="f-dupes">
-                    Remove Duplicate Users (1 entry per user)
+                    {lang === 'ar' ? 'استبعاد التكرار (مشاركة واحدة لكل مستخدم)' : 'Remove Duplicate Users (1 entry per user)'}
                   </label>
                   <span className="text-[11px] text-slate-400">
-                    Ensures every unique handle has exactly one spot on the wheel
+                    {lang === 'ar' ? 'يضمن حصول كل حساب فريد على خانة واحدة فقط في العجلة' : 'Ensures every unique handle has exactly one spot on the wheel'}
                   </span>
                 </div>
                 <input
@@ -1044,6 +1064,27 @@ export const SocialCommentPickerPage: React.FC<SocialCommentPickerPageProps> = (
                   type="checkbox"
                   checked={removeDuplicates}
                   onChange={(e) => setRemoveDuplicates(e.target.checked)}
+                  className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
+                />
+              </div>
+
+              {/* Filter 1.5: Include Comment Replies */}
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-900">
+                <div>
+                  <label className="text-xs font-bold text-slate-200 block cursor-pointer" htmlFor="f-replies">
+                    {lang === 'ar' ? 'شمل الردود على التعليقات (Comment Replies)' : 'Include Comment Replies'}
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    {lang === 'ar'
+                      ? 'إدراج المشاركين الذين تفاعلوا في سلاسل الردود مع التعليقات الرئيسية'
+                      : 'Include users who participated in reply threads under main comments'}
+                  </span>
+                </div>
+                <input
+                  id="f-replies"
+                  type="checkbox"
+                  checked={includeReplies}
+                  onChange={(e) => setIncludeReplies(e.target.checked)}
                   className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
                 />
               </div>

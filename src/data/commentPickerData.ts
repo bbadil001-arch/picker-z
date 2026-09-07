@@ -8,6 +8,8 @@ export interface SocialCommentItem {
   comment: string;
   timestamp: string;
   likes?: number;
+  avatarUrl?: string;
+  isReply?: boolean;
 }
 
 export interface PlatformConfig {

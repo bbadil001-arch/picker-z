@@ -10,6 +10,7 @@ export interface YouTubeCommentItem {
   timestamp: string;
   likes: number;
   avatarUrl?: string;
+  isReply?: boolean;
 }
 
 export interface YouTubeFetchResult {
@@ -18,6 +19,8 @@ export interface YouTubeFetchResult {
   channelTitle?: string;
   thumbnailUrl?: string;
   totalCommentsReported?: number;
+  topLevelCount?: number;
+  repliesCount?: number;
   comments?: YouTubeCommentItem[];
   error?: string;
   errorAr?: string;
@@ -130,8 +133,36 @@ export async function fetchYouTubeCommentsDirect(
     }
 
     const comments: YouTubeCommentItem[] = [];
+    const replyTokens: string[] = [];
     let page = 0;
-    const maxPages = Math.min(Math.ceil(maxFetchCount / 20), 12);
+    const maxPages = Math.min(Math.ceil(maxFetchCount / 20), 25);
+
+    function parseMutations(muts: any[], isReply: boolean = false) {
+      for (const m of muts) {
+        const payload = m.payload?.commentEntityPayload;
+        if (payload) {
+          const rawName = payload.author?.displayName || 'User';
+          const username = rawName.startsWith('@') ? rawName : `@${rawName.replace(/\s+/g, '_')}`;
+          const commentText = payload.properties?.content?.content || '';
+          const likesRaw = payload.toolbar?.likeCountNotliked || '0';
+          const likes = parseInt(String(likesRaw).replace(/\D/g, ''), 10) || 0;
+          const timestamp = payload.properties?.publishedTime || 'Recent';
+          const avatarUrl = payload.author?.avatarThumbnailUrl || '';
+
+          if (commentText && !comments.some((c) => c.comment === commentText && c.username === username)) {
+            comments.push({
+              id: `yt_${comments.length + 1}`,
+              username,
+              comment: commentText,
+              likes,
+              timestamp,
+              avatarUrl,
+              isReply,
+            });
+          }
+        }
+      }
+    }
 
     while (currentToken && page < maxPages && comments.length < maxFetchCount) {
       page++;
@@ -163,35 +194,31 @@ export async function fetchYouTubeCommentsDirect(
         if (numStr) totalCommentsReported = parseInt(numStr, 10);
       }
 
-      // Parse comment mutations
+      // Parse top-level comment mutations
       const mutations = nextData.frameworkUpdates?.entityBatchUpdate?.mutations || [];
-      for (const m of mutations) {
-        const payload = m.payload?.commentEntityPayload;
-        if (payload) {
-          const rawName = payload.author?.displayName || 'User';
-          const username = rawName.startsWith('@') ? rawName : `@${rawName.replace(/\s+/g, '_')}`;
-          const commentText = payload.properties?.content?.content || '';
-          const likesRaw = payload.toolbar?.likeCountNotliked || '0';
-          const likes = parseInt(String(likesRaw).replace(/\D/g, ''), 10) || 0;
-          const timestamp = payload.properties?.publishedTime || 'Recent';
-          const avatarUrl = payload.author?.avatarThumbnailUrl || '';
+      parseMutations(mutations, false);
 
-          if (commentText && !comments.some((c) => c.comment === commentText && c.username === username)) {
-            comments.push({
-              id: `yt_${comments.length + 1}`,
-              username,
-              comment: commentText,
-              likes,
-              timestamp,
-              avatarUrl,
-            });
+      // Collect reply continuation tokens
+      const eps = nextData.onResponseReceivedEndpoints || [];
+      for (const ep of eps) {
+        const list = ep.reloadContinuationItemsCommand?.continuationItems || ep.appendContinuationItemsAction?.continuationItems || [];
+        for (const item of list) {
+          if (item.commentThreadRenderer) {
+            const replies = item.commentThreadRenderer.replies?.commentRepliesRenderer?.contents;
+            if (replies) {
+              for (const r of replies) {
+                const token = r.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
+                if (token && !replyTokens.includes(token)) {
+                  replyTokens.push(token);
+                }
+              }
+            }
           }
         }
       }
 
-      // Find next pagination continuation token
+      // Find next pagination continuation token for top-level comments
       currentToken = undefined;
-      const eps = nextData.onResponseReceivedEndpoints || [];
       for (const ep of eps) {
         const list = ep.reloadContinuationItemsCommand?.continuationItems || ep.appendContinuationItemsAction?.continuationItems || [];
         for (const item of list) {
@@ -204,6 +231,42 @@ export async function fetchYouTubeCommentsDirect(
       }
     }
 
+    const topLevelCount = comments.length;
+
+    // Fetch replies in parallel batches
+    if (replyTokens.length > 0 && comments.length < maxFetchCount) {
+      for (let i = 0; i < replyTokens.length && comments.length < maxFetchCount; i += 5) {
+        const batch = replyTokens.slice(i, i + 5);
+        await Promise.all(
+          batch.map(async (rToken) => {
+            try {
+              const rRes = await fetch(`https://www.youtube.com/youtubei/v1/next?key=${innertubeApiKey}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                },
+                body: JSON.stringify({
+                  context: { client: { clientName: 'WEB', clientVersion } },
+                  continuation: rToken,
+                }),
+                signal: AbortSignal.timeout(8000),
+              });
+              if (rRes.ok) {
+                const rData: any = await rRes.json();
+                const rMutations = rData.frameworkUpdates?.entityBatchUpdate?.mutations || [];
+                parseMutations(rMutations, true);
+              }
+            } catch (e) {
+              // Ignore individual reply fetch timeout
+            }
+          })
+        );
+      }
+    }
+
+    const repliesCount = Math.max(0, comments.length - topLevelCount);
+
     if (comments.length > 0) {
       return {
         success: true,
@@ -211,6 +274,8 @@ export async function fetchYouTubeCommentsDirect(
         channelTitle,
         thumbnailUrl,
         totalCommentsReported: totalCommentsReported || comments.length,
+        topLevelCount,
+        repliesCount,
         comments,
       };
     }
