@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Lightbulb,
   Info,
+  Compass,
 } from 'lucide-react';
 
 interface ArticleDetailPageProps {
@@ -455,6 +456,45 @@ export const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
           </div>
         </div>
       )}
+
+      {/* Sitemap & Complete Guides Directory Link */}
+      <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="space-y-1 text-center sm:text-left rtl:sm:text-right">
+          <h4 className="text-sm font-bold text-slate-200 flex items-center justify-center sm:justify-start gap-2">
+            <Compass className="w-4 h-4 text-amber-400" />
+            <span>{lang === 'ar' ? 'استكشف كافة مقالات وأدوات الموقع' : 'Explore All Guides & Spin Tools'}</span>
+          </h4>
+          <p className="text-xs text-slate-400">
+            {lang === 'ar'
+              ? 'تصفح أكثر من 39 أداة ومقالاً مفهرساً بالكامل في خريطة الموقع ودليل الروابط.'
+              : 'Browse all 39+ interactive tools and articles indexed in our comprehensive sitemap.'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          <a
+            href="/articles"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigateToPage('articles');
+            }}
+            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition"
+          >
+            {lang === 'ar' ? 'جميع المقالات (24)' : 'All 24 Articles'}
+          </a>
+          <a
+            href="/sitemap"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigateToPage('sitemap');
+            }}
+            className="px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 text-xs font-bold transition flex items-center gap-1.5"
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>{lang === 'ar' ? 'خريطة الموقع (Sitemap)' : 'HTML Sitemap'}</span>
+          </a>
+        </div>
+      </div>
     </div>
   );
 };

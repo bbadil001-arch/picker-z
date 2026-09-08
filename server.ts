@@ -190,6 +190,7 @@ async function startServer() {
         { path: "numbers", priority: "0.9", changefreq: "daily", lastmod: today },
         { path: "names", priority: "0.9", changefreq: "daily", lastmod: today },
         { path: "articles", priority: "0.9", changefreq: "weekly", lastmod: today },
+        { path: "sitemap", priority: "0.85", changefreq: "weekly", lastmod: today },
         ...articleRoutes,
         { path: "faq", priority: "0.8", changefreq: "weekly", lastmod: today },
         { path: "privacy", priority: "0.7", changefreq: "monthly", lastmod: today },

@@ -11,6 +11,7 @@ export type ActivePage =
   | 'names'
   | 'articles'
   | 'article-detail'
+  | 'sitemap'
   | 'legal'
   | 'contact'
   | 'faq'

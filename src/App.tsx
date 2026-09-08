@@ -17,12 +17,13 @@ import { ArticleDetailPage } from './components/ArticleDetailPage';
 import { FullLegalPage } from './components/FullLegalPage';
 import { ContactPage } from './components/ContactPage';
 import { SocialCommentPickerPage } from './components/SocialCommentPickerPage';
+import { SitemapPage } from './components/SitemapPage';
 import { LegalDocType } from './data/legalContent';
 import { ARTICLES } from './data/articles';
 import { LANGUAGES, t } from './utils/translations';
 import { sanitizeOptionLabel, sanitizeHtml, safeDecodeURI } from './utils/security';
 import { safeStorage } from './utils/safeStorage';
-import { Sparkles, Dices, HelpCircle, CheckCircle2, UserCheck, Disc, Mail, Shield, BookOpen } from 'lucide-react';
+import { Sparkles, Dices, HelpCircle, CheckCircle2, UserCheck, Disc, Mail, Shield, BookOpen, Compass } from 'lucide-react';
 
 const DEFAULT_OPTIONS: WheelOption[] = [
   { id: '1', label: 'Emma Watson', hidden: false },
@@ -222,6 +223,8 @@ export default function App() {
       } else if (['privacy', 'terms', 'about', 'cookies', 'disclaimer'].includes(pathname)) {
         setLegalTab(pathname as LegalDocType);
         setActivePage('legal');
+      } else if (pathname === 'sitemap') {
+        setActivePage('sitemap');
       } else if (pathname === 'contact') {
         setActivePage('contact');
       } else if (pathname === 'tiktok-comment-picker') {
@@ -286,6 +289,8 @@ export default function App() {
       navigateTo('/names');
     } else if (page === 'articles') {
       navigateTo('/articles');
+    } else if (page === 'sitemap') {
+      navigateTo('/sitemap');
     } else if (page === 'contact') {
       navigateTo('/contact');
     } else if (
@@ -450,6 +455,16 @@ export default function App() {
             onSelectTab={handleOpenLegal}
             onBackToHome={() => handlePageSelect('wheel')}
             onOpenContact={() => handlePageSelect('contact')}
+          />
+        )}
+
+        {/* VIEW: COMPREHENSIVE HTML SITEMAP & ALL LINKS */}
+        {activePage === 'sitemap' && (
+          <SitemapPage
+            lang={lang}
+            onNavigateToPage={(p) => handlePageSelect(p as any)}
+            onSelectArticle={handleSelectArticle}
+            onOpenLegal={handleOpenLegal}
           />
         )}
 
@@ -787,6 +802,19 @@ export default function App() {
                     {t(lang, 'blogTitle')}
                   </a>
                 </li>
+                <li>
+                  <a
+                    href="/sitemap"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageSelect('sitemap' as any);
+                    }}
+                    className="hover:text-cyan-300 transition flex items-center gap-1 text-left rtl:text-right font-semibold text-cyan-400/90"
+                  >
+                    <Compass className="w-3 h-3" />
+                    <span>{lang === 'ar' ? 'خريطة الموقع ودليل الروابط' : 'HTML Sitemap & All Links'}</span>
+                  </a>
+                </li>
                 {ARTICLES.slice(0, 3).map((art) => (
                   <li key={art.slug}>
                     <a
@@ -885,6 +913,70 @@ export default function App() {
                   </a>
                 </li>
               </ul>
+            </div>
+          </div>
+
+          {/* Comprehensive Internal Linking Directory (All 24 Articles & Complete Site Links) */}
+          <div className="pt-4 pb-2 border-b border-slate-800/80 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="space-y-0.5">
+                <h4 className="text-xs sm:text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <Compass className="w-4 h-4 text-amber-400" />
+                  <span>
+                    {lang === 'ar'
+                      ? 'دليل المقالات والأدلة الإرشادية الشامل (24 مقالاً)'
+                      : 'Complete Guide & Article Directory (24 Guides)'}
+                  </span>
+                </h4>
+                <p className="text-[11px] text-slate-400">
+                  {lang === 'ar'
+                    ? 'كافة شروحات مسابقات السوشيال ميديا، أدوات الفصول المدرسية، وحسم القرارات والنزاهة العشوائية.'
+                    : 'All tutorials for social media giveaways, classroom activities, decision frameworks, and algorithmic fairness.'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <a
+                  href="/sitemap"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handlePageSelect('sitemap' as any);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400 hover:bg-amber-500/20 font-bold transition flex items-center gap-1.5"
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>{lang === 'ar' ? 'عرض خريطة الموقع الكاملة' : 'View HTML Sitemap'}</span>
+                </a>
+                <a
+                  href="/sitemap.xml"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-slate-400 hover:text-white font-mono transition"
+                >
+                  sitemap.xml ↗
+                </a>
+              </div>
+            </div>
+
+            {/* Grid of all 24 articles */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2 text-[11px]">
+              {ARTICLES.map((art) => (
+                <a
+                  key={art.slug}
+                  href={`/articles/${art.slug}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleSelectArticle(art.slug);
+                  }}
+                  className="group hover:text-amber-400 text-slate-400 transition flex items-start gap-1.5 py-1"
+                  title={art.title[lang] || art.title.en}
+                >
+                  <span className="text-amber-400/60 font-mono text-[9px] mt-0.5">•</span>
+                  <span className="group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-transform line-clamp-1">
+                    {art.title[lang] || art.title.en}
+                  </span>
+                </a>
+              ))}
             </div>
           </div>
 
